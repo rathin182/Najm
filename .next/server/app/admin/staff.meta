@@ -1,0 +1,39 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/staff/layout,_N_T_/admin/staff/page,_N_T_/admin/staff"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/admin/staff/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 96,
+            "slots": {
+              "children": {
+                "hints": 160,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/2cd26238d7a0cc42aeca17557d9b6f7c4662cf6e7d600719f961ae18e0ac8000/$/admin/staff",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/staff/page"
+    },
+    "isFallback": false
+  }
+}

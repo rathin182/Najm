@@ -1,0 +1,176 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Pinyon Script", cursive;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-glass: var(--glass);
+}
+
+:root {
+  --radius: 1rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.17 0.01 160);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.01 160);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.01 160);
+  /* Deep emerald green */
+  --primary: oklch(0.42 0.085 158);
+  --primary-foreground: oklch(0.98 0.01 90);
+  /* Cream */
+  --secondary: oklch(0.96 0.018 85);
+  --secondary-foreground: oklch(0.17 0.01 160);
+  --cream: oklch(0.96 0.018 85);
+  --muted: oklch(0.96 0.018 85);
+  --muted-foreground: oklch(0.45 0.015 160);
+  /* Black accent */
+  --accent: oklch(0.14 0 0);
+  --accent-foreground: oklch(0.99 0 0);
+  --ink: oklch(0.14 0 0);
+  --ink-foreground: oklch(0.99 0 0);
+  --glass: oklch(1 0 0 / 0.55);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.96 0.018 85);
+  --input: oklch(0.96 0.018 85);
+  --ring: oklch(0.42 0.085 158);
+  --shadow-soft: 0 30px 60px -30px oklch(0.17 0.01 160 / 0.25);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+}
+
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* Fancy display word */
+@utility fancy {
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 400;
+  color: var(--primary);
+  font-size: 1.2em;
+  line-height: 0.9;
+  letter-spacing: 0;
+  padding: 0 0.06em;
+}
+
+@utility display-xl {
+  font-size: clamp(3rem, 6.4vw, 6.5rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+}
+
+@utility display-lg {
+  font-size: clamp(2.4rem, 4.6vw, 4.6rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+}
+
+@utility display-md {
+  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 500;
+}
+
+@utility glass {
+  background: var(--glass);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--shadow-soft);
+}
+
+@utility glass-dark {
+  background: oklch(0.14 0 0 / 0.35);
+  backdrop-filter: blur(18px) saturate(1.4);
+  color: var(--ink-foreground);
+}
+
+/* Fully transparent glass with a faint grain — no white wash. */
+@utility glass-clear {
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  backdrop-filter: blur(4px) saturate(1.3);
+}
+
+/* Green-tinted frosted glass for panels on dark/photo backgrounds. */
+@utility glass-green {
+  background: color-mix(in oklab, var(--primary) 28%, transparent);
+  backdrop-filter: blur(10px) saturate(1.3);
+  color: var(--primary-foreground);
+}
+
+@utility shadow-soft {
+  box-shadow: var(--shadow-soft);
+}
+
+@utility field {
+  width: 100%;
+  background: var(--cream);
+  border-radius: 9999px;
+  padding: 0.85rem 1.25rem;
+  font-size: 0.95rem;
+  outline: none;
+  appearance: none;
+  color: var(--foreground);
+  transition: box-shadow 0.2s;
+  &:focus {
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+}
+
+@utility hero-clip {
+  clip-path: inset(30% 0 0 0 round 2rem);
+}

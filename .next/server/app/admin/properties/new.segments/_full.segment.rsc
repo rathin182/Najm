@@ -1,0 +1,45 @@
+1:"$Sreact.fragment"
+2:"static/chunks/500-9d2a77de23464304.js"
+3:"static/chunks/913-514414fe58abe92a.js"
+4:"static/chunks/684-dec9b8e732df1756.js"
+5:"static/chunks/868-b72969c1b09133e0.js"
+6:"static/chunks/app/layout-56068c59ac61f3b1.js"
+7:I[91000,["500","$2","913","$3","684","$4","868","$5","177","$6"],"AppProviders"]
+8:I[57121,[],""]
+9:"static/chunks/app/error-45efeab958ed66c6.js"
+a:I[17267,["39","$9"],"default"]
+b:I[74581,[],""]
+c:"static/chunks/app/not-found-d154c5d5d597febc.js"
+d:I[98500,["500","$2","345","$c"],""]
+f:"ClientSegmentRoot"
+10:I[78616,[],"$f"]
+11:"static/chunks/144-dbd920bae5b5d612.js"
+12:"static/chunks/69-cafe193ee7e8e20d.js"
+13:"static/chunks/app/admin/layout-64fe0c3f01ce04c2.js"
+14:I[87657,["500","$2","144","$11","684","$4","69","$12","581","$13"],"default"]
+1a:I[61304,[],"ClientPageRoot"]
+1b:"static/chunks/52-b2fa1d82342a89ee.js"
+1c:"static/chunks/app/admin/properties/new/page-5b8bfc9846c9b9f9.js"
+1d:I[92047,["500","$2","913","$3","144","$11","684","$4","69","$12","52","$1b","599","$1c"],"default"]
+20:I[90484,[],"OutletBoundary"]
+21:"$Sreact.suspense"
+23:"ViewportBoundary"
+24:I[90484,[],"$23"]
+26:"MetadataBoundary"
+27:I[90484,[],"$26"]
+29:I[27123,[],"default",1]
+:HL["/_next/static/css/b5d66ddaae77c614.css","style"]
+17:X
+19:[["children",{"s":"__PAGE__","h":512,"d":{"r":["$","$1","c",{"children":[["$","$L1a",null,{"Component":"$1d","serverProvidedParams":{"searchParams":{},"params":"$e:0:1:d:r:props:children:1:props:serverProvidedParams:params","promises":["$@1e","$@1f"]}}],null,["$","$L20",null,{"children":["$","$21",null,{"name":"Next.MetadataOutlet","children":"$@22"}]}]]}],"p":false,"v":null}}]]
+18:[["children",{"s":"new","h":512,"d":{"r":["$","$1","c",{"children":[null,["$","$L8",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$Lb",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],"p":false,"v":"$17"},"c":"$Q19"}]]
+16:[["children",{"s":"properties","h":512,"d":{"r":["$","$1","c",{"children":[null,["$","$L8",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$Lb",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]]}],"p":false,"v":"$17"},"c":"$Q18"}]]
+e:[["children",{"s":"admin","h":512,"d":{"r":["$","$1","c",{"children":[null,["$","$L10",null,{"Component":"$14","slots":{"children":["$","$L8",null,{"parallelRouterKey":"children","error":"$undefined","errorStyles":"$undefined","errorScripts":"$undefined","template":["$","$Lb",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":"$undefined","forbidden":"$undefined","unauthorized":"$undefined"}]},"serverProvidedParams":{"params":{},"promises":["$@15"]}}]]}],"p":false,"v":null},"c":"$Q16"}]]
+0:{"P":null,"c":["","admin","properties","new"],"q":"","i":false,"t":{"t":{"s":"","h":528,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/css/b5d66ddaae77c614.css","precedence":"next","crossOrigin":"$undefined","nonce":"$undefined"}]],["$","html",null,{"lang":"en","children":["$","body",null,{"children":["$","$L7",null,{"children":["$","$L8",null,{"parallelRouterKey":"children","error":"$a","errorStyles":[],"errorScripts":null,"template":["$","$Lb",null,{}],"templateStyles":"$undefined","templateScripts":"$undefined","notFound":[["$","main",null,{"className":"flex min-h-screen items-center justify-center bg-background px-4","children":["$","div",null,{"className":"max-w-md text-center","children":[["$","h1",null,{"className":"text-7xl font-bold","children":"404"}],["$","h2",null,{"className":"mt-4 text-xl font-semibold","children":"Page not found"}],["$","p",null,{"className":"mt-2 text-sm text-muted-foreground","children":"The page you're looking for doesn't exist or has been moved."}],["$","$Ld",null,{"href":"/","className":"mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground","children":"Go home"}]]}]}],[]],"forbidden":"$undefined","unauthorized":"$undefined"}]}]}]}]]}],"p":false,"v":null},"c":"$Qe"},"h":{"r":["$","$1","h",{"children":[null,["$","$L24",null,{"children":"$L25"}],["$","$L27",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$21",null,{"name":"Next.Metadata","children":"$L28"}]}],null]}],null]}],"p":false,"v":null}},"m":"$undefined","G":["$29",[]],"S":true,"r":"$undefined","s":"$undefined","a":"$undefined","l":"$undefined","p":"$undefined","d":"$undefined","b":"FIKWKhWibpOCI1i_G0tsJ"}
+17:C
+15:"$e:0:1:d:r:props:children:1:props:serverProvidedParams:params"
+1e:{}
+1f:"$e:0:1:d:r:props:children:1:props:serverProvidedParams:params"
+25:[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]
+2a:I[86869,[],"IconMark"]
+22:null
+28:[["$","title","0",{"children":"Najm Estate — Premium Property in Saudi Arabia"}],["$","meta","1",{"name":"description","content":"Najm Estate curates premium villas, residences and investment properties across Saudi Arabia."}],["$","meta","2",{"property":"og:title","content":"Najm Estate — Premium Property in Saudi Arabia"}],["$","meta","3",{"property":"og:description","content":"Premium villas, residences and investment properties across Saudi Arabia."}],["$","meta","4",{"property":"og:type","content":"website"}],["$","meta","5",{"name":"twitter:card","content":"summary_large_image"}],["$","meta","6",{"name":"twitter:title","content":"Najm Estate — Premium Property in Saudi Arabia"}],["$","meta","7",{"name":"twitter:description","content":"Premium villas, residences and investment properties across Saudi Arabia."}],["$","link","8",{"rel":"icon","href":"/favicon.ico"}],["$","$L2a","9",{}]]

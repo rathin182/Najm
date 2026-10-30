@@ -1,0 +1,39 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/admin/layout,_N_T_/admin/contacts/layout,_N_T_/admin/contacts/page,_N_T_/admin/contacts"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/admin/contacts/__PAGE__"
+  ],
+  "prefetchHints": {
+    "hints": 64,
+    "slots": {
+      "children": {
+        "hints": 96,
+        "slots": {
+          "children": {
+            "hints": 96,
+            "slots": {
+              "children": {
+                "hints": 160,
+                "slots": null
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "routeCache": {
+    "key": "/route-cache/APP_PAGE/8f57d622ac4b25a85ce8daea3806b0ee8f6a59780a71a56404dea70fe83e5989/$/admin/contacts",
+    "owner": {
+      "kind": "APP_PAGE",
+      "sourceRoute": "/admin/contacts/page"
+    },
+    "isFallback": false
+  }
+}

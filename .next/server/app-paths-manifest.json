@@ -1,0 +1,17 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/_global-error/page": "app/_global-error/page.js",
+  "/about/page": "app/about/page.js",
+  "/contact/page": "app/contact/page.js",
+  "/knowledge/page": "app/knowledge/page.js",
+  "/page": "app/page.js",
+  "/properties/[id]/page": "app/properties/[id]/page.js",
+  "/admin/contacts/page": "app/admin/contacts/page.js",
+  "/admin/enquiries/page": "app/admin/enquiries/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/admin/properties/[id]/page": "app/admin/properties/[id]/page.js",
+  "/admin/properties/new/page": "app/admin/properties/new/page.js",
+  "/admin/properties/page": "app/admin/properties/page.js",
+  "/admin/staff/page": "app/admin/staff/page.js",
+  "/properties/page": "app/properties/page.js"
+}

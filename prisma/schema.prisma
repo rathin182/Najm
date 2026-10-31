@@ -41,6 +41,7 @@ model User {
   reports       Report[]
   auditLogs     AuditLog[]
   agentApplication AgentApplication?
+  createdContacts  Contact[]
 }
 
 model Account {
@@ -323,4 +324,43 @@ model ContactCard {
   updatedAt       DateTime @updatedAt
 
   @@index([sortOrder, createdAt])
+}
+enum ContactType {
+  BUYER
+  INVESTOR
+  SELLER
+  TENANT
+}
+
+model Contact {
+  id          String      @id @default(cuid())
+  name        String
+  email       String      @unique 
+  phone       String?
+  type        ContactType @default(BUYER)
+  city        String      @default("Riyadh")
+  notes       String      @default("")
+  createdById String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+model ContactSettings {
+  id            String   @id @default("main")
+  heading       String   @default("Talk")
+  headingAccent String   @default("to us")
+  subheading    String   @default("A private advisor will reply within 24 hours — or call us directly.")
+  phone         String   @default("+966 11 000 0000")
+  email         String   @default("hello@najmestate.sa")
+  hours         String   @default("Sun–Thu 9:00–21:00 · Fri–Sat by appointment")
+  offices       Json     @default("[]")
+  mapTitle      String   @default("Najm Estate office map")
+  mapLatitude   Float?
+  mapLongitude  Float?
+  mapAddress    String   @default("")
+  mapZoom       Int      @default(13)
+  updatedAt     DateTime @updatedAt
 }

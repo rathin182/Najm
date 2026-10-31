@@ -249,7 +249,7 @@ function Detail() {
                 <p className="mt-3 text-lg opacity-80">Arrange a private viewing or request the full information pack.</p>
               </div>
               <div className="p-8">
-                <EnquiryForm cta="Request viewing" defaultMessage={`I'm interested in ${p.title}.`} />
+                <EnquiryForm cta="Request viewing" defaultMessage={`I'm interested in ${p.title}.`} propertyId={p.id} propertyTitle={p.title} />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-4 rounded-[2rem] bg-cream p-4">

@@ -1,28 +1,89 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { fmtDate, newId, useAdmin, type Contact } from "@/lib/admin-store";
+import { fmtDate, useAdmin } from "@/lib/admin-store";
+import { CONTACT_LABEL, CONTACT_TYPES, type ApiContact, type ContactType } from "@/lib/contacts-client";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
 
-
-const TYPES: Contact["type"][] = ["Buyer", "Investor", "Seller", "Tenant"];
-const blank = (): Contact => ({ id: newId(), name: "", email: "", phone: "", type: "Buyer", city: "Riyadh", notes: "", date: new Date().toISOString() });
+type Draft = { id?: string; name: string; email: string; phone: string; type: ContactType; city: string; notes: string };
+const blank = (): Draft => ({ name: "", email: "", phone: "", type: "BUYER", city: "Riyadh", notes: "" });
 
 function Contacts() {
-  const { contacts, saveContact, deleteContact, can } = useAdmin();
+  const { can } = useAdmin();
+  const [contacts, setContacts] = useState<ApiContact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [q, setQ] = useState("");
-  const [type, setType] = useState("");
-  const [edit, setEdit] = useState<Contact | null>(null);
+  const [type, setType] = useState<"" | ContactType>("");
+  const [edit, setEdit] = useState<Draft | null>(null);
 
-  const list = useMemo(() => contacts.filter((c) => (!type || c.type === type) && `${c.name} ${c.email} ${c.phone} ${c.city}`.toLowerCase().includes(q.toLowerCase())), [contacts, q, type]);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/contacts", { cache: "no-store" });
+      if (!res.ok) throw new Error("Unable to load contacts.");
+      setContacts(((await res.json()) as { items: ApiContact[] }).items);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to load contacts.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const list = useMemo(
+    () => contacts.filter((c) => (!type || c.type === type) && `${c.name} ${c.email} ${c.phone ?? ""} ${c.city}`.toLowerCase().includes(q.toLowerCase())),
+    [contacts, q, type],
+  );
 
   const exportCsv = () => {
-    const rows = [["Name", "Email", "Phone", "Type", "City", "Notes"], ...list.map((c) => [c.name, c.email, c.phone, c.type, c.city, c.notes])];
-    const blob = new Blob([rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n")], { type: "text/csv" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "najm-contacts.csv"; a.click();
-  };
+  const qs = type ? `?type=${type}` : "";
+  window.location.href = `/api/admin/contacts/export${qs}`;
+};
+
+  async function save(draft: Draft) {
+    if (!draft.name.trim() || !draft.email.includes("@")) {
+      toast.error("Name and a valid email are required");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(draft.id ? `/api/admin/contacts/${draft.id}` : "/api/admin/contacts", {
+        method: draft.id ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: draft.name, email: draft.email, phone: draft.phone, type: draft.type, city: draft.city, notes: draft.notes }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Could not save contact.");
+      const saved = body as ApiContact;
+      setContacts((prev) => (draft.id ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev]));
+      setEdit(null);
+      toast.success("Contact saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save contact.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(c: ApiContact) {
+    if (!confirm(`Delete ${c.name}?`)) return;
+    try {
+      const res = await fetch(`/api/admin/contacts/${c.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not delete contact.");
+      setContacts((prev) => prev.filter((x) => x.id !== c.id));
+      toast.success("Contact deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete contact.");
+    }
+  }
 
   return (
     <div>
@@ -37,7 +98,10 @@ function Contacts() {
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, email, phone" className="field !bg-background pl-10" />
         </label>
-        <select value={type} onChange={(e) => setType(e.target.value)} className="field !w-auto !bg-background"><option value="">All types</option>{TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+        <select value={type} onChange={(e) => setType(e.target.value as "" | ContactType)} className="field !w-auto !bg-background">
+          <option value="">All types</option>
+          {CONTACT_TYPES.map((t) => <option key={t} value={t}>{CONTACT_LABEL[t]}</option>)}
+        </select>
       </div>
       <Panel className="overflow-x-auto !p-2">
         <table className="w-full min-w-[720px] text-left">
@@ -46,32 +110,41 @@ function Contacts() {
             {list.map((c) => (
               <tr key={c.id} className="transition-colors hover:bg-cream/60">
                 <td className="rounded-l-2xl p-4"><p className="font-medium">{c.name}</p><p className="text-sm text-muted-foreground">{c.email}</p></td>
-                <td className="p-4">{c.phone}</td>
-                <td className="p-4">{c.type}</td>
+                <td className="p-4">{c.phone ?? "—"}</td>
+                <td className="p-4">{CONTACT_LABEL[c.type]}</td>
                 <td className="p-4">{c.city}</td>
-                <td className="p-4 text-sm text-muted-foreground">{fmtDate(c.date)}</td>
+                <td className="p-4 text-sm text-muted-foreground">{fmtDate(c.createdAt)}</td>
                 <td className="rounded-r-2xl p-4 text-right">
-                  {can.edit && <button aria-label="Edit" onClick={() => setEdit(c)} className="rounded-full p-2 hover:bg-cream"><Pencil className="h-4 w-4" /></button>}
-                  {can.delete && <button aria-label="Delete" onClick={() => { if (confirm(`Delete ${c.name}?`)) { deleteContact(c.id); toast.success("Contact deleted"); } }} className="rounded-full p-2 text-destructive hover:bg-cream"><Trash2 className="h-4 w-4" /></button>}
+                  {can.edit && <button aria-label="Edit" onClick={() => setEdit({ id: c.id, name: c.name, email: c.email, phone: c.phone ?? "", type: c.type, city: c.city, notes: c.notes })} className="rounded-full p-2 hover:bg-cream"><Pencil className="h-4 w-4" /></button>}
+                  {can.delete && <button aria-label="Delete" onClick={() => void remove(c)} className="rounded-full p-2 text-destructive hover:bg-cream"><Trash2 className="h-4 w-4" /></button>}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {list.length === 0 && <p className="p-6 text-muted-foreground">No contacts match.</p>}
+        {loading && <p className="p-6 text-muted-foreground">Loading…</p>}
+        {error && (
+          <div className="p-6">
+            <p className="text-destructive">{error}</p>
+            <button onClick={() => void load()} className="mt-3 rounded-full bg-cream px-4 py-2 text-sm">Retry</button>
+          </div>
+        )}
+        {!loading && !error && list.length === 0 && <p className="p-6 text-muted-foreground">No contacts match.</p>}
       </Panel>
 
       <Dialog open={!!edit} onOpenChange={(o) => !o && setEdit(null)}>
         <DialogContent className="rounded-[2rem] border-none">
-          <DialogHeader><DialogTitle className="text-2xl font-medium">{contacts.some((c) => c.id === edit?.id) ? "Edit contact" : "New contact"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="text-2xl font-medium">{edit?.id ? "Edit contact" : "New contact"}</DialogTitle></DialogHeader>
           {edit && (
-            <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); if (!edit.name.trim() || !edit.email.includes("@")) { toast.error("Name and a valid email are required"); return; } saveContact(edit); setEdit(null); toast.success("Contact saved"); }}>
+            <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void save(edit); }}>
               {(["name", "email", "phone", "city"] as const).map((k) => (
                 <input key={k} className="field" placeholder={k[0]!.toUpperCase() + k.slice(1)} value={edit[k]} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} />
               ))}
-              <select className="field" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as Contact["type"] })}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select>
+              <select className="field" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as ContactType })}>
+                {CONTACT_TYPES.map((t) => <option key={t} value={t}>{CONTACT_LABEL[t]}</option>)}
+              </select>
               <textarea className="field resize-none rounded-[1.5rem]" rows={3} placeholder="Notes" value={edit.notes} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} />
-              <button className="mt-2 rounded-full bg-primary py-3.5 text-primary-foreground">Save contact</button>
+              <button disabled={saving} className="mt-2 rounded-full bg-primary py-3.5 text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save contact"}</button>
             </form>
           )}
         </DialogContent>

@@ -1,8 +1,8 @@
 "use client";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Contact as ContactIcon, ExternalLink, Inbox, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { Building2, Contact as ContactIcon, ExternalLink, FileText, Inbox, LayoutDashboard, LogOut, Users } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar,
@@ -16,14 +16,26 @@ const NAV = [
   { title: "Contacts", url: "/admin/contacts", icon: ContactIcon },
   { title: "Properties", url: "/admin/properties", icon: Building2 },
   { title: "Staff", url: "/admin/staff", icon: Users },
+  { title: "Contact Info", url: "/admin/contact-info", icon: FileText }
 ] as const;
 
 function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const path = usePathname().replace(/\/$/, "") || "/";
-  const { user, can, enquiries } = useAdmin();
-  const newCount = enquiries.filter((e) => e.status === "New").length;
+  const { user, can } = useAdmin();
+  const [newCount, setNewCount] = useState(0);
+
+  useEffect(() => {
+    const refresh = () =>
+      fetch("/api/admin/requests?type=counts", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { counts: { NEW: number } } | null) => d && setNewCount(d.counts.NEW))
+        .catch(() => { });
+    void refresh();
+    window.addEventListener("enquiries:changed", refresh);
+    return () => window.removeEventListener("enquiries:changed", refresh);
+  }, [path]);
 
   return (
     <Sidebar collapsible="icon">

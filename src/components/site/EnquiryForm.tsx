@@ -1,8 +1,8 @@
+"use client";
 import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { ArrowUpRight } from "lucide-react";
-import { pushEnquiry } from "@/lib/admin-store";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Please enter your name").max(100),
@@ -11,16 +11,29 @@ const schema = z.object({
   message: z.string().trim().max(1000).optional(),
 });
 
-export function EnquiryForm({ cta = "Send enquiry", defaultMessage = "", source, propertyId }: { cta?: string; defaultMessage?: string; source?: string; propertyId?: string }) {
+export function EnquiryForm({
+  cta = "Send enquiry",
+  defaultMessage = "",
+  propertyId,
+  propertyTitle,
+}: {
+  cta?: string;
+  defaultMessage?: string;
+  /** Slug/id of the property this enquiry is for. Omit for general contact forms. */
+  propertyId?: string;
+  propertyTitle?: string;
+}) {
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
   return (
     <form
       className="flex flex-col gap-4"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
+        if (submitting) return;
         const form = e.currentTarget;
-        const data = Object.fromEntries(new FormData(form));
-        const r = schema.safeParse(data);
+        const r = schema.safeParse(Object.fromEntries(new FormData(form)));
         if (!r.success) {
           const errs: Record<string, string> = {};
           r.error.issues.forEach((i) => (errs[String(i.path[0])] = i.message));
@@ -28,9 +41,31 @@ export function EnquiryForm({ cta = "Send enquiry", defaultMessage = "", source,
           return;
         }
         setErrors({});
-        pushEnquiry({ ...r.data, message: r.data.message ?? "", source: source ?? (typeof window !== "undefined" ? window.location.pathname : "Website"), propertyId });
-        form.reset();
-        toast.success("Thank you — an advisor will contact you within 24 hours.");
+        setSubmitting(true);
+        try {
+          const res = await fetch("/api/enquiries", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...r.data,
+              message: r.data.message || undefined,
+              // The API requires a property reference; general forms are tagged "general-enquiry".
+              propertySlug: propertyId ?? "general-enquiry",
+              propertyTitle: propertyTitle ?? (propertyId ? undefined : "General enquiry"),
+              source: "property-page",
+            }),
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            throw new Error(body?.error ?? "Something went wrong. Please try again.");
+          }
+          form.reset();
+          toast.success("Thank you — an advisor will contact you within 24 hours.");
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+        } finally {
+          setSubmitting(false);
+        }
       }}
     >
       {(["name", "email", "phone"] as const).map((f) => (
@@ -45,8 +80,12 @@ export function EnquiryForm({ cta = "Send enquiry", defaultMessage = "", source,
         </div>
       ))}
       <textarea name="message" rows={4} defaultValue={defaultMessage} placeholder="How can we help?" className="field resize-none rounded-[1.75rem]" />
-      <button type="submit" className="mt-2 flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg text-primary-foreground transition-colors hover:bg-ink">
-        {cta} <ArrowUpRight className="h-5 w-5" />
+      <button
+        type="submit"
+        disabled={submitting}
+        className="mt-2 flex items-center justify-center gap-2 rounded-full bg-primary px-8 py-4 text-lg text-primary-foreground transition-colors hover:bg-ink disabled:opacity-60"
+      >
+        {submitting ? "Sending…" : cta} <ArrowUpRight className="h-5 w-5" />
       </button>
     </form>
   );

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowUpRight, Building2, Eye, Inbox, Plus, Wallet } from "lucide-react";
 import { fmtDate, useAdmin } from "@/lib/admin-store";
@@ -10,7 +10,14 @@ import { Panel, STATUS_STYLE } from "@/components/admin/AdminShell";
 const C = ["var(--primary)", "var(--ink)", "oklch(0.75 0.06 85)", "oklch(0.62 0.07 158)", "oklch(0.85 0.03 85)"];
 
 function Dashboard() {
-  const { properties, enquiries, contacts, user } = useAdmin();
+  const { properties, enquiries, user } = useAdmin();
+const [contactCount, setContactCount] = useState<number | null>(null);
+useEffect(() => {
+  fetch("/api/admin/contacts", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d: { items: unknown[] } | null) => d && setContactCount(d.items.length))
+    .catch(() => {});
+}, []);
 
   const stats = useMemo(() => {
     const views = properties.reduce((s, p) => s + p.views, 0);
@@ -168,7 +175,7 @@ function Dashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">{contacts.length} contacts in your address book</p>
+          <p className="mt-2 text-sm text-muted-foreground">{contactCount ?? "—"} contacts in your address book</p>
         </Panel>
       </div>
     </div>

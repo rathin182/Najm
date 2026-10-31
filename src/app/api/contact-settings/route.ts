@@ -1,31 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_CONTACT_CARDS } from "@/lib/contact-settings";
+import { DEFAULT_CONTACT_SETTINGS, toContactSettings } from "@/lib/contact-settings";
 
+export const dynamic = "force-dynamic";
 export async function GET() {
-  let cards;
+  let data = DEFAULT_CONTACT_SETTINGS;
   try {
-    cards = await prisma.contactCard.findMany({
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-      select: {
-        id: true,
-        sortOrder: true,
-        label: true,
-        badge: true,
-        title: true,
-        address: true,
-        phonePrimary: true,
-        phoneSecondary: true,
-        email: true,
-        visitingHours: true,
-      },
-    });
+    const row = await prisma.contactSettings.findUnique({ where: { id: "main" } });
+    data = toContactSettings(row);
   } catch (error) {
     if ((error as { code?: string }).code !== "P2021") throw error;
-    cards = DEFAULT_CONTACT_CARDS;
   }
-
-  return NextResponse.json(cards, {
-    headers: { "Cache-Control": "no-store" },
-  });
+  return NextResponse.json(data, { headers: { "Cache-Control": "no-store" } });
 }

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
-import { DEMO_PASSWORD, newId, PERMS, useAdmin, type Role } from "@/lib/admin-store";
+import { newId, PERMS, useAdmin, type Role } from "@/lib/admin-store";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
 
 
@@ -20,7 +20,7 @@ function StaffPage() {
 
   return (
     <div>
-      <PageHeader title="Staff" sub={`New accounts sign in with the demo password ${DEMO_PASSWORD}`} />
+      <PageHeader title="Staff" sub="Staff access is managed in the user database." />
       <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
         <Panel className="!p-2">
           <ul>

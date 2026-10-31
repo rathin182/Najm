@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSession } from "next-auth/react";
 import { PROPERTIES, type Property } from "@/data/properties";
 
-/** Demo admin data, kept in this browser's localStorage only (no server). */
+/** Admin workspace data stays browser-local; identity and permissions come from the server JWT. */
 
 export type Role = "Admin" | "Agent" | "Viewer";
 export type EnquiryStatus = "New" | "Contacted" | "Viewing" | "Closed";
@@ -21,8 +22,6 @@ type Data = { properties: AdminProperty[]; enquiries: Enquiry[]; contacts: Conta
 
 const KEY = "najm-admin-v1";
 const INBOX = "najm-inbox-v1";
-const SESSION = "najm-admin-session";
-export const DEMO_PASSWORD = "najm2026";
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const daysAgo = (d: number, h = 10) => { const t = new Date(); t.setDate(t.getDate() - d); t.setHours(h, 0, 0, 0); return t.toISOString(); };
@@ -84,9 +83,9 @@ const AdminCtx = createContext<Ctx | null>(null);
 export const newId = uid;
 
 export function AdminProvider({ children }: { children: ReactNode }) {
+  const { data: session, status: sessionStatus } = useSession();
   const [data, setData] = useState<Data>(() => seed());
   const [ready, setReady] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     let d = seed();
@@ -95,7 +94,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (raw) d = JSON.parse(raw);
       const inbox = JSON.parse(localStorage.getItem(INBOX) || "[]");
       if (inbox.length) { d.enquiries = [...inbox.reverse(), ...d.enquiries]; localStorage.removeItem(INBOX); }
-      setUserId(localStorage.getItem(SESSION));
     } catch { /* ignore */ }
     setData(d);
     setReady(true);
@@ -106,19 +104,21 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota: large photos */ }
   }, [data, ready]);
 
-  const user = data.staff.find((s) => s.id === userId && s.active) ?? null;
+  const sessionUser = session?.user;
+  const user: Staff | null = sessionUser ? {
+    id: sessionUser.id,
+    name: sessionUser.name ?? sessionUser.email ?? "Staff",
+    email: sessionUser.email ?? "",
+    role: sessionUser.role === "ADMIN" ? "Admin" : sessionUser.role === "AGENT" ? "Agent" : "Viewer",
+    active: true,
+  } : null;
   const upsert = <T extends { id: string }>(list: T[], item: T) => list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [item, ...list];
 
-  const login = useCallback((email: string, password: string) => {
-    const s = data.staff.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
-    if (!s || password !== DEMO_PASSWORD) return "Wrong email or password.";
-    if (!s.active) return "This account is disabled.";
-    localStorage.setItem(SESSION, s.id); setUserId(s.id); return null;
-  }, [data.staff]);
+  const login = useCallback(() => "Use the secure sign-in form.", []);
 
   const value = useMemo<Ctx>(() => ({
-    ...data, ready, user, can: PERMS[user?.role ?? "Viewer"], login,
-    logout: () => { localStorage.removeItem(SESSION); setUserId(null); },
+    ...data, ready: ready && sessionStatus !== "loading", user, can: PERMS[user?.role ?? "Viewer"], login,
+    logout: () => {},
     saveProperty: (p) => setData((d) => ({ ...d, properties: upsert(d.properties, p) })),
     deleteProperty: (id) => setData((d) => ({ ...d, properties: d.properties.filter((p) => p.id !== id) })),
     updateEnquiry: (id, patch) => setData((d) => ({ ...d, enquiries: d.enquiries.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
@@ -128,7 +128,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     saveStaff: (s) => setData((d) => ({ ...d, staff: upsert(d.staff, s) })),
     deleteStaff: (id) => setData((d) => ({ ...d, staff: d.staff.filter((s) => s.id !== id) })),
     reset: () => setData(seed()),
-  }), [data, ready, user, login]);
+  }), [data, ready, sessionStatus, user, login]);
 
   return <AdminCtx.Provider value={value}>{children}</AdminCtx.Provider>;
 }

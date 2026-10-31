@@ -2,7 +2,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bath, BedDouble, GripVertical, ImagePlus, MapPin, Maximize, Plus, Star, X } from "lucide-react";
+import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home, ImagePlus, MapPin, Maximize, Plus, Star, X } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { CITIES, TYPES, formatSAR, propertyDetails, type Property } from "@/data/properties";
@@ -44,12 +44,17 @@ function compress(file: File): Promise<string> {
 
 const SECTIONS = ["Photos", "Basics", "Price & size", "Description", "Specifications", "Rooms", "Amenities", "Payment plan", "Location", "Agent & SEO", "Visibility"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
+const CATEGORY_TYPES = {
+  Commercial: ["Office", "Shop", "Showroom", "Warehouse", "Industrial Building", "Business Center", "Commercial Land", "Restaurant / Cafe", "Co-working Space"],
+  Residential: ["Apartment / Flat", "Villa", "Independent House", "Penthouse", "Duplex", "Studio Apartment", "Residential Plot", "Townhouse", "Farmhouse"],
+} as const;
 
 export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const { properties, saveProperty } = useAdmin();
   const router = useRouter();
   const isNew = !properties.some((p) => p.id === initial.id);
   const [p, setP] = useState<AdminProperty>(initial);
+  const [category, setCategory] = useState<keyof typeof CATEGORY_TYPES>(p.type === "Commercial" ? "Commercial" : "Residential");
   const [x, setX] = useState<PropertyExtra>(() => extraFor(initial));
   const set = <K extends keyof AdminProperty>(k: K, v: AdminProperty[K]) => setP((c) => ({ ...c, [k]: v }));
   const setE = <K extends keyof PropertyExtra>(k: K, v: PropertyExtra[K]) => setX((c) => ({ ...c, [k]: v }));
@@ -107,12 +112,38 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
 
           <Section title="Basics">
             <F label="Title" wide><input className="field" value={p.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Al Noor Signature Villa" /></F>
-            <F label="Property type"><select className="field" value={p.type} onChange={(e) => set("type", e.target.value as Property["type"])}>{TYPES.map((t) => <option key={t}>{t}</option>)}</select></F>
+            <div className="sm:col-span-2">
+              <p className="mb-2 px-1 text-sm text-muted-foreground">Property Category</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(["Residential", "Commercial"] as const).map((value) => {
+                  const selected = category === value;
+                    const CategoryIcon = value === "Residential" ? Home : Building2;
+                    return <button key={value} type="button" onClick={() => setCategory(value)} aria-pressed={selected} className={`rounded-2xl border p-4 text-left transition-colors ${selected ? "border-primary bg-primary/5" : "border-border bg-cream hover:border-primary/40"}`}>
+                      <span className="mb-3 flex items-center justify-between"><CategoryIcon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />{selected && <CheckCircle2 className="h-4 w-4 text-primary" />}</span>
+                      <span className="block font-medium">{value}</span>
+                    <span className="mt-1 block text-sm text-muted-foreground">{value === "Residential" ? "Homes, apartments, villas and plots" : "Offices, shops and business spaces"}</span>
+                  </button>;
+                })}
+              </div>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="mb-2 px-1 text-sm text-muted-foreground">Property Type</p>
+              <div className="rounded-2xl bg-cream p-4">
+                <select className="w-full border-0 bg-transparent py-1 outline-none" value={CATEGORY_TYPES[category].includes(p.type as never) ? p.type : ""} onChange={(e) => set("type", e.target.value as Property["type"])}>
+                  <option value="" disabled>Select property type</option>
+                  {CATEGORY_TYPES[category].map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <div className="mt-3 grid grid-cols-1 gap-x-4 border-t border-border/60 pt-3 sm:grid-cols-2">
+                  {CATEGORY_TYPES[category].map((t) => <button key={t} type="button" onClick={() => set("type", t as Property["type"])} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm ${p.type === t ? "font-medium text-primary" : "text-muted-foreground hover:text-foreground"}`}><span className={`h-3 w-3 rounded-full ${p.type === t ? "bg-primary" : "bg-muted-foreground/50"}`} />{t}</button>)}
+                </div>
+              </div>
+            </div>
             <F label="Status"><select className="field" value={p.status} onChange={(e) => set("status", e.target.value as Property["status"])}><option>Ready</option><option>Off-plan</option></select></F>
             <F label="City"><select className="field" value={p.city} onChange={(e) => set("city", e.target.value)}>{CITIES.map((c) => <option key={c}>{c}</option>)}</select></F>
             <F label="District"><input className="field" value={p.district} onChange={(e) => set("district", e.target.value)} placeholder="e.g. Al Malqa" /></F>
             <F label="Year built / completion"><input className="field" type="number" value={p.year} onChange={(e) => set("year", Number(e.target.value))} /></F>
             <F label="Developer"><input className="field" value={x.developer} onChange={(e) => setE("developer", e.target.value)} /></F>
+            <F label="Property state"><select className="field" defaultValue=""><option value="" disabled>Select property state</option><option value="Sale">For sale</option><option value="Buy">For buy</option></select></F>
           </Section>
 
           <Section title="Price & size">
@@ -141,9 +172,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
             <F label="Handover date (off-plan)"><input className="field" type="month" value={x.handover} onChange={(e) => setE("handover", e.target.value)} /></F>
           </Section>
 
-          <Section title="Rooms" hint="Room-by-room layout shown on the listing page.">
-            <Pairs list={x.rooms} onChange={(v) => setE("rooms", v)} a="Room" b="Size" />
-          </Section>
+          <RoomsLivingSpaces list={x.rooms} onChange={(v) => setE("rooms", v)} />
 
           <Section title="Amenities" hint="Press Enter to add each one.">
             <Tags label="Amenities" list={p.amenities} onChange={(v) => set("amenities", v)} placeholder="Private pool, smart home…" />
@@ -214,6 +243,40 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 
 function F({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
   return <label className={`flex flex-col gap-1.5 ${wide ? "sm:col-span-2" : ""}`}><span className="px-1 text-sm text-muted-foreground">{label}</span>{children}</label>;
+}
+
+function RoomsLivingSpaces({ list, onChange }: { list: Pair[]; onChange: (v: Pair[]) => void }) {
+  const [bathrooms, setBathrooms] = useState<Pair[]>([["Ensuite", ""], ["Common", ""]]);
+  const rooms = list.length ? list : [["Bedroom", ""]] as Pair[];
+  const bedrooms = rooms.filter(([name]) => /bedroom/i.test(name)).length;
+  const living = rooms.filter(([name]) => /living|lounge/i.test(name)).length;
+  const kitchens = rooms.filter(([name]) => /kitchen/i.test(name)).length;
+  const card = "rounded-xl border border-border bg-background p-3";
+  const miniField = "mt-1 w-full rounded-lg bg-cream px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary";
+  const addRoom = () => onChange([...rooms, ["Bedroom", ""]]);
+  return <>
+    <section id="rooms" className="scroll-mt-24 rounded-[1.75rem] bg-background p-5 md:p-6 sm:col-span-2">
+      <div className="flex items-start justify-between"><div><h2 className="text-xl font-medium">Rooms &amp; Living Spaces</h2><p className="text-xs text-muted-foreground">Manage individual rooms and their details</p></div><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{rooms.length} Rooms</span></div>
+      <div className="mt-4 grid grid-cols-3 gap-2 border-b border-border pb-4">
+        {[[bedrooms, "Bedrooms"], [living, "Living areas"], [kitchens, "Kitchens"]].map(([n, label]) => <div key={label} className="rounded-lg bg-cream p-2"><strong className="block text-sm">{n}</strong><span className="text-xs text-muted-foreground">{label}</span></div>)}
+      </div>
+      <div className="mt-4 flex justify-between text-sm"><strong>Room details</strong><span className="text-xs text-muted-foreground">{rooms.length} entries</span></div>
+      <div className="mt-2 space-y-2">
+        {rooms.map(([name, size], i) => <div key={i} className={card}>
+          <div className="mb-2 flex items-center justify-between"><strong className="text-sm">{name || `Room ${i + 1}`}</strong><button type="button" aria-label="Remove room" onClick={() => onChange(rooms.filter((_, j) => j !== i))} className="px-2 text-muted-foreground hover:text-destructive">×</button></div>
+          <div className="grid gap-2 sm:grid-cols-2"><label className="text-xs text-muted-foreground">Room type<input className={miniField} value={name} onChange={(e) => onChange(rooms.map((r, j) => j === i ? [e.target.value, r[1]] : r))} placeholder="e.g. Master Bedroom" /></label><label className="text-xs text-muted-foreground">Size (m²)<input className={miniField} value={size} onChange={(e) => onChange(rooms.map((r, j) => j === i ? [r[0], e.target.value] : r))} placeholder="25" /></label></div>
+          {/bedroom/i.test(name) && <p className="mt-2 text-xs text-muted-foreground">Quantity: 1 <span className="ml-3">Ensuite bathroom: <select className="rounded bg-cream px-2 py-1 text-foreground"><option>No</option><option>Yes</option></select></span></p>}
+        </div>)}
+      </div>
+      <button type="button" onClick={addRoom} className="mt-2 w-full rounded-md border-2 border-primary px-3 py-2.5 text-left text-base font-medium text-primary hover:bg-primary/5">＋ Add another room</button>
+    </section>
+    <section className="rounded-[1.75rem] bg-background p-5 md:p-6 sm:col-span-2">
+      <div className="flex items-start justify-between"><div><h2 className="text-lg font-medium">Bathrooms</h2><p className="text-xs text-muted-foreground">Configure bathroom details separately</p></div><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{bathrooms.length} Bathrooms</span></div>
+      <div className="mt-3 space-y-2">{bathrooms.map(([type, size], i) => <div key={i} className={card}><div className="mb-2 flex justify-between text-sm font-medium"><span>Bathroom {String(i + 1).padStart(2, "0")}</span><button type="button" onClick={() => setBathrooms(bathrooms.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive" aria-label="Remove bathroom">×</button></div><div className="grid gap-2 sm:grid-cols-2"><label className="text-xs text-muted-foreground">Bathroom type<input className={miniField} value={type} onChange={(e) => setBathrooms(bathrooms.map((r, j) => j === i ? [e.target.value, r[1]] : r))} placeholder="Ensuite" /></label><label className="text-xs text-muted-foreground">Area (m²)<input className={miniField} value={size} onChange={(e) => setBathrooms(bathrooms.map((r, j) => j === i ? [r[0], e.target.value] : r))} placeholder="8" /></label></div></div>)}</div>
+      <button type="button" onClick={() => setBathrooms([...bathrooms, ["Common", ""]])} className="mt-2 w-full rounded-md border-2 border-primary px-3 py-2.5 text-left text-base font-medium text-primary hover:bg-primary/5">＋ Add another bathroom</button>
+      <div className="mt-3 rounded-xl bg-cream p-3"><strong className="text-sm">Property room summary</strong><div className="mt-2 grid grid-cols-3 gap-2 text-center">{[[bedrooms, "Bedrooms"], [bathrooms.length, "Bathrooms"], [living, "Living areas"]].map(([n, label]) => <div key={label} className="rounded-lg bg-background p-2"><strong className="block text-sm">{n}</strong><span className="text-xs text-muted-foreground">{label}</span></div>)}</div></div>
+    </section>
+  </>;
 }
 
 function Pairs({ list, onChange, a, b }: { list: Pair[]; onChange: (v: Pair[]) => void; a: string; b: string }) {

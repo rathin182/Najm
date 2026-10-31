@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@prisma/client": "^7.10.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.8",
@@ -64,12 +65,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@tailwindcss/postcss": "^4.2.1",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -78,9 +79,10 @@
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
     "next": "^16.0.0",
+    "postcss": "^8.5.6",
     "prettier": "^3.7.3",
+    "prisma": "^7.10.1",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.56.1",
-    "postcss": "^8.5.6"
+    "typescript-eslint": "^8.56.1"
   }
 }

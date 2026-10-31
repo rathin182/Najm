@@ -1,0 +1,326 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+  runtime  = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  BUYER
+  OWNER
+  AGENT
+  ADMIN
+}
+
+enum MandateStatus {
+  NEW
+  CONTACTED
+  IN_PROGRESS
+  CLOSED
+  NOT_INTERESTED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  passwordHash  String?
+  role          Role      @default(BUYER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  listings      Listing[]
+  enquiries     Enquiry[]
+  savedListings SavedListing[]
+  reports       Report[]
+  auditLogs     AuditLog[]
+  agentApplication AgentApplication?
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model AcquisitionMandate {
+  id             String        @id @default(cuid())
+  name           String
+  email          String
+  phone          String
+  investorType   String
+  allocationTier String?
+  region         String?
+  message        String?
+  source         String?       // "home-faq" | "contact-page"
+  status         MandateStatus @default(NEW)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+enum ListingType {
+  SALE
+  RENT
+}
+
+enum PropertyCategory {
+  RESIDENTIAL
+  COMMERCIAL
+  LAND
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING_REVIEW
+  LIVE
+  REJECTED
+  EXPIRED
+  SOLD_OR_RENTED
+  ARCHIVED
+}
+
+enum MediaKind {
+  IMAGE
+  VIDEO_LINK
+  VIDEO_UPLOAD
+}
+
+enum MediaStatus {
+  PENDING
+  READY
+  FAILED
+}
+
+enum EnquiryStatus {
+  NEW
+  CONTACTED
+  VISIT_SCHEDULED
+  CLOSED
+  NOT_INTERESTED
+}
+
+enum ReportReason {
+  SPAM
+  FAKE
+  DUPLICATE
+  WRONG_INFO
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+model Listing {
+  id               String           @id @default(cuid())
+  ownerId          String
+  slug             String           @unique
+  title            String
+  description      String
+  listingType      ListingType
+  category         PropertyCategory
+  propertyType     String?          // "apartment", "villa", "shop", "plot"... free text so we can add types without a migration
+  price            BigInt           // whole rupees
+  priceNegotiable  Boolean          @default(false)
+  featured         Boolean          @default(false)
+  bedrooms         Int?
+  bathrooms        Int?
+  furnished        Boolean          @default(false)
+  floors           Int?
+  yearBuilt        Int?
+  areaSqft         Int?
+  addressLine      String?
+  locality         String?
+  city             String
+  state            String
+  pincode          String?
+  latitude         Float?
+  longitude        Float?
+  reraNumber       String?
+
+  areaSqm          Int?            
+  availableFrom     DateTime?
+  availabilityNotes String?
+  zoning           String?
+  frontageMeters   Float?
+  depthMeters      Float?
+  propertyUse      String?
+  tier             String?          
+  isOffPlan        Boolean          @default(false)
+  badge            String?
+  flags            String[]         @default([])
+  amenities        String[]         @default([])
+  keyFeatures      String[]         @default([])
+  projectedYield   String?
+  titleAr          String?
+  locationAr       String?
+
+  status           ListingStatus    @default(DRAFT)
+  rejectionReason  String?
+  publishedAt      DateTime?
+  expiresAt        DateTime?
+  viewCount        Int              @default(0)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  owner     User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  media     ListingMedia[]
+  enquiries Enquiry[]
+  saves     SavedListing[]
+  reports   Report[]
+
+  @@index([status, city])
+  @@index([status, listingType, category])
+  @@index([ownerId])
+}
+
+model ListingMedia {
+  id          String      @id @default(cuid())
+  listingId   String
+  kind        MediaKind
+  storageKey  String?     // R2 object key (images)
+  externalUrl String?     // YouTube/Vimeo link (video)
+  position    Int         @default(0)
+  isCover     Boolean     @default(false)
+  status      MediaStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, position])
+}
+
+model Enquiry {
+  id            String        @id @default(cuid())
+  listingId     String?       
+  senderId      String?       
+  name          String
+  email         String
+  phone         String?
+  message       String
+  investorType  String?
+  propertySlug  String?
+  propertyTitle String?
+  source        String?       // "property-page" | "home-modal"
+  status        EnquiryStatus @default(NEW)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+
+  listing Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  sender  User?    @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([listingId, createdAt])
+  @@index([senderId])
+  @@index([status, createdAt])
+}
+model SavedListing {
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@id([userId, listingId])
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  listingId  String
+  reporterId String
+  reason     ReportReason
+  details    String?
+  status     ReportStatus @default(OPEN)
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+
+  listing  Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  reporter User    @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String   // "listing.approve", "listing.reject", "user.role_change"
+  entityType String
+  entityId   String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+enum AgentApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AgentApplication {
+  id              String                 @id @default(cuid())
+  userId          String                 @unique
+  agencyName      String
+  reraNumber      String
+  reraState       String
+  phone           String
+  status          AgentApplicationStatus @default(PENDING)
+  rejectionReason String?
+  reviewedAt      DateTime?
+  createdAt       DateTime               @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reraState, reraNumber])
+  @@index([status, createdAt])
+}
+
+model ContactCard {
+  id              String   @id @default(cuid())
+  sortOrder       Int      @default(0)
+  label           String   @default("")
+  badge           String   @default("")
+  title           String   @default("")
+  address         String   @default("")
+  phonePrimary    String   @default("")
+  phoneSecondary  String   @default("")
+  email           String   @default("")
+  visitingHours   String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([sortOrder, createdAt])
+}

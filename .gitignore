@@ -18,6 +18,7 @@ dist-ssr/
 .vinxi/
 .tanstack/**
 .nitro/
+.next/*
 
 # Local files
 *.local
@@ -44,3 +45,5 @@ dist-ssr/
 
 # Generated Prisma client
 src/generated/
+
+*.tsbuildinfo

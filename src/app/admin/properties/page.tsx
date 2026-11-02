@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Eye, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -14,6 +14,15 @@ function PropertiesAdmin() {
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
   const [type, setType] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/listings", { credentials: "include" }).then(async (response) => {
+      if (!response.ok) throw new Error("Could not load listings.");
+      return response.json();
+    }).then((listings) => { if (!cancelled && Array.isArray(listings)) listings.forEach((property) => saveProperty(property)); }).catch(() => toast.error("Could not load saved listings."));
+    return () => { cancelled = true; };
+  }, []);
 
   const list = useMemo(() => properties.filter((p) => (!city || p.city === city) && (!type || p.type === type) && `${p.title} ${p.district} ${p.type}`.toLowerCase().includes(q.toLowerCase())), [properties, q, city, type]);
 
@@ -45,10 +54,15 @@ function PropertiesAdmin() {
               <div className="mt-4 flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-sm text-muted-foreground"><Eye className="h-4 w-4" />{p.views.toLocaleString("en")}</span>
                 <label className="ml-auto flex items-center gap-2 text-sm">{p.published ? "Live" : "Hidden"}
-                  <Switch checked={p.published} disabled={!can.edit} onCheckedChange={(v) => saveProperty({ ...p, published: v })} />
+                  <Switch checked={p.published} disabled={!can.edit} onCheckedChange={async (v) => {
+                    try {
+                      const response = await fetch(`/api/admin/listings/${encodeURIComponent(p.id)}`, { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ published: v }) });
+                      const result = await response.json(); if (!response.ok) throw new Error(result.error ?? "Update failed."); saveProperty(result);
+                    } catch (error) { toast.error(error instanceof Error ? error.message : "Update failed."); }
+                  }} />
                 </label>
                 {can.edit && <Link href={`/admin/properties/${p.id}`} aria-label="Edit" className="rounded-full bg-cream p-2.5 hover:bg-primary hover:text-primary-foreground"><Pencil className="h-4 w-4" /></Link>}
-                {can.delete && <button aria-label="Delete" onClick={() => { if (confirm(`Delete "${p.title}"?`)) { deleteProperty(p.id); toast.success("Property deleted"); } }} className="rounded-full bg-cream p-2.5 text-destructive"><Trash2 className="h-4 w-4" /></button>}
+                {can.delete && <button aria-label="Delete" onClick={async () => { if (!confirm(`Delete "${p.title}"?`)) return; try { const response = await fetch(`/api/admin/listings/${encodeURIComponent(p.id)}`, { method: "DELETE", credentials: "include" }); if (!response.ok) throw new Error("Could not delete property."); deleteProperty(p.id); toast.success("Property deleted"); } catch (error) { toast.error(error instanceof Error ? error.message : "Could not delete property."); } }} className="rounded-full bg-cream p-2.5 text-destructive"><Trash2 className="h-4 w-4" /></button>}
               </div>
             </div>
           </Panel>

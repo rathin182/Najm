@@ -1,14 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { listingToProperty } from "@/lib/listing-property";
 import { Prisma } from "@/generated/prisma/client";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const session = await auth();
+  const isAdmin = session?.user.role === "ADMIN";
   const { searchParams } = new URL(request.url);
   if (searchParams.get("paginated") !== "1") {
     const listings = await prisma.listing.findMany({
-      where: { status: "LIVE" },
+      where: isAdmin ? {} : { status: "LIVE" },
       orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
       include: { media: { orderBy: { position: "asc" } } },
     });
@@ -17,7 +20,7 @@ export async function GET(request: Request) {
 
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const pageSize = Math.min(30, Math.max(1, Number(searchParams.get("pageSize")) || 15));
-  const where: Prisma.ListingWhereInput = { status: "LIVE" };
+  const where: Prisma.ListingWhereInput = isAdmin ? {} : { status: "LIVE" };
   const city = searchParams.get("city");
   const type = searchParams.get("type");
   const transaction = searchParams.get("transaction");

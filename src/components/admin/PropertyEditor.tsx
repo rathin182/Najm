@@ -1,11 +1,11 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home, ImagePlus, MapPin, Maximize, Plus, Star, X } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
-import { CITIES, TYPES, formatSAR, propertyDetails, type Property } from "@/data/properties";
+import { CITIES, formatSAR, propertyDetails, type Property } from "@/data/properties";
 import { newId, useAdmin, type AdminProperty, type Pair, type PropertyExtra } from "@/lib/admin-store";
 
 export function blankProperty(): AdminProperty {
@@ -28,20 +28,6 @@ function extraFor(p: AdminProperty): PropertyExtra {
   };
 }
 
-function compress(file: File): Promise<string> {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => {
-      const s = Math.min(1, 1400 / img.width);
-      const c = document.createElement("canvas"); c.width = img.width * s; c.height = img.height * s;
-      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
-      res(c.toDataURL("image/jpeg", 0.72)); URL.revokeObjectURL(img.src);
-    };
-    img.onerror = rej;
-    img.src = URL.createObjectURL(file);
-  });
-}
-
 const SECTIONS = ["Photos", "Basics", "Price & size", "Description", "Specifications", "Rooms", "Amenities", "Payment plan", "Location", "Agent & SEO", "Visibility"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 const CATEGORY_TYPES = {
@@ -52,20 +38,61 @@ const CATEGORY_TYPES = {
 export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const { properties, saveProperty } = useAdmin();
   const router = useRouter();
-  const isNew = !properties.some((p) => p.id === initial.id);
+  const [loadedFromApi, setLoadedFromApi] = useState(false);
+  const isNew = !properties.some((p) => p.id === initial.id) && !loadedFromApi;
   const [p, setP] = useState<AdminProperty>(initial);
   const [category, setCategory] = useState<keyof typeof CATEGORY_TYPES>(p.type === "Commercial" ? "Commercial" : "Residential");
   const [x, setX] = useState<PropertyExtra>(() => extraFor(initial));
+  const [busy, setBusy] = useState(false);
+  const [bathrooms, setBathrooms] = useState<Pair[]>(() => (initial.details as (PropertyExtra & { bathrooms?: Pair[] }) | undefined)?.bathrooms ?? Array.from({ length: initial.baths || 0 }, () => ["Bathroom", ""] as Pair));
+  useEffect(() => {
+    if (properties.some((property) => property.id === initial.id) || !initial.title) return;
+    let cancelled = false;
+    fetch("/api/admin/listings", { credentials: "include" }).then(async (response) => {
+      if (!response.ok) throw new Error("Could not load listing details.");
+      return response.json() as Promise<AdminProperty[]>;
+    }).then((listings) => {
+      const listing = listings.find((item) => item.id === initial.id);
+      if (!cancelled && listing) { setP(listing); setX(extraFor(listing)); setBathrooms((listing.details as (PropertyExtra & { bathrooms?: Pair[] }) | undefined)?.bathrooms ?? []); setLoadedFromApi(true); }
+    }).catch(() => toast.error("Could not load the saved property."));
+    return () => { cancelled = true; };
+  }, [initial.id, initial.title, properties]);
   const set = <K extends keyof AdminProperty>(k: K, v: AdminProperty[K]) => setP((c) => ({ ...c, [k]: v }));
   const setE = <K extends keyof PropertyExtra>(k: K, v: PropertyExtra[K]) => setX((c) => ({ ...c, [k]: v }));
 
-  const save = () => {
+  const save = async () => {
     const missing = [!p.title.trim() && "title", !p.district.trim() && "district", p.price <= 0 && "price", p.area <= 0 && "area", p.images.length === 0 && "a photo"].filter(Boolean);
     if (missing.length) { toast.error(`Please add ${missing.join(", ")}`); return; }
     const clean = (l: Pair[]) => l.filter(([a, b]) => a.trim() || b.trim());
-    saveProperty({ ...p, description: p.description || p.short, details: { ...x, rooms: clean(x.rooms), nearby: clean(x.nearby), plan: clean(x.plan) } });
-    toast.success(isNew ? "Property added" : "Changes saved");
-    router.push("/admin/properties");
+    setBusy(true);
+    try {
+      const property = { ...p, description: p.description || p.short, details: { ...x, rooms: clean(x.rooms), nearby: clean(x.nearby), plan: clean(x.plan), bathrooms: clean(bathrooms) } };
+      const response = await fetch("/api/admin/listings", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(property) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Could not save property.");
+      saveProperty(result as AdminProperty);
+      toast.success(isNew ? "Property added" : "Changes saved");
+      router.push("/admin/properties");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save property."); }
+    finally { setBusy(false); }
+  };
+
+  const uploadFiles = async (files: File[], expectedKind: "image" | "video") => {
+    setBusy(true);
+    try {
+      const uploaded = await Promise.all(files.map(async (file) => {
+        const form = new FormData(); form.set("file", file);
+        const response = await fetch("/api/admin/uploads", { method: "POST", credentials: "include", body: form });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error ?? `Could not upload ${file.name}.`);
+        if (result.kind !== expectedKind || typeof result.url !== "string") throw new Error(`Unexpected upload response for ${file.name}.`);
+        return result.url as string;
+      }));
+      if (expectedKind === "image") setP((current) => ({ ...current, images: [...current.images, ...uploaded] }));
+      else setE("video", uploaded[0] ?? "");
+      toast.success(expectedKind === "image" ? "Photos uploaded" : "Video uploaded");
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Upload failed."); }
+    finally { setBusy(false); }
   };
 
   return (
@@ -77,7 +104,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
           <p className="text-muted-foreground">{isNew ? "Fill in every detail buyers see on the listing page." : p.title}</p>
         </div>
         <Link href="/admin/properties" className="rounded-full bg-background px-6 py-3">Cancel</Link>
-        <button onClick={save} className="rounded-full bg-primary px-6 py-3 text-primary-foreground hover:bg-ink">{isNew ? "Publish property" : "Save changes"}</button>
+        <button onClick={save} disabled={busy} className="rounded-full bg-primary px-6 py-3 text-primary-foreground hover:bg-ink disabled:opacity-60">{busy ? "Saving…" : isNew ? "Publish property" : "Save changes"}</button>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[200px_1fr_340px]">
@@ -104,7 +131,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
                 <ImagePlus className="h-7 w-7" /><span className="text-sm">Upload photos</span>
                 <input type="file" accept="image/*" multiple className="hidden" onChange={async (e) => {
                   const files = Array.from(e.target.files ?? []); e.target.value = "";
-                  try { const urls = await Promise.all(files.map(compress)); setP((c) => ({ ...c, images: [...c.images, ...urls] })); } catch { toast.error("One of the photos couldn't be read"); }
+                  await uploadFiles(files, "image");
                 }} />
               </label>
             </div>
@@ -143,7 +170,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
             <F label="District"><input className="field" value={p.district} onChange={(e) => set("district", e.target.value)} placeholder="e.g. Al Malqa" /></F>
             <F label="Year built / completion"><input className="field" type="number" value={p.year} onChange={(e) => set("year", Number(e.target.value))} /></F>
             <F label="Developer"><input className="field" value={x.developer} onChange={(e) => setE("developer", e.target.value)} /></F>
-            <F label="Property state"><select className="field" defaultValue=""><option value="" disabled>Select property state</option><option value="Sale">For sale</option><option value="Buy">For buy</option></select></F>
+            <F label="Property state"><select className="field" value="Sale" disabled><option value="Sale">For sale</option><option value="Buy">For buy</option></select></F>
           </Section>
 
           <Section title="Price & size">
@@ -160,7 +187,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
           <Section title="Description">
             <F label="Short description (shown on cards)" wide><input className="field" maxLength={140} value={p.short} onChange={(e) => set("short", e.target.value)} /></F>
             <F label="Full description" wide><textarea className="field resize-none rounded-[1.5rem]" rows={7} value={p.description} onChange={(e) => set("description", e.target.value)} /></F>
-            <F label="Video tour link (optional)" wide><input className="field" value={x.video} onChange={(e) => setE("video", e.target.value)} placeholder="https://youtube.com/…" /></F>
+            <F label="Video tour link (optional)" wide><input className="field" value={x.video.startsWith("/") ? "" : x.video} onChange={(e) => setE("video", e.target.value)} placeholder="https://youtube.com/…" /><span className="text-xs text-muted-foreground">Or upload an MP4, MOV, WebM or Ogg video (up to 100 MB).</span><input type="file" accept="video/mp4,video/quicktime,video/webm,video/ogg" disabled={busy} onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) await uploadFiles([file], "video"); }} /><button type="button" disabled={!x.video.startsWith("/")} onClick={() => setE("video", "")} className="w-fit text-sm text-destructive disabled:hidden">Remove uploaded video</button></F>
           </Section>
 
           <Section title="Specifications">
@@ -172,7 +199,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
             <F label="Handover date (off-plan)"><input className="field" type="month" value={x.handover} onChange={(e) => setE("handover", e.target.value)} /></F>
           </Section>
 
-          <RoomsLivingSpaces list={x.rooms} onChange={(v) => setE("rooms", v)} />
+          <RoomsLivingSpaces list={x.rooms} onChange={(v) => setE("rooms", v)} bathrooms={bathrooms} onBathroomsChange={setBathrooms} />
 
           <Section title="Amenities" hint="Press Enter to add each one.">
             <Tags label="Amenities" list={p.amenities} onChange={(v) => set("amenities", v)} placeholder="Private pool, smart home…" />
@@ -245,8 +272,7 @@ function F({ label, wide, children }: { label: string; wide?: boolean; children:
   return <label className={`flex flex-col gap-1.5 ${wide ? "sm:col-span-2" : ""}`}><span className="px-1 text-sm text-muted-foreground">{label}</span>{children}</label>;
 }
 
-function RoomsLivingSpaces({ list, onChange }: { list: Pair[]; onChange: (v: Pair[]) => void }) {
-  const [bathrooms, setBathrooms] = useState<Pair[]>([["Ensuite", ""], ["Common", ""]]);
+function RoomsLivingSpaces({ list, onChange, bathrooms, onBathroomsChange }: { list: Pair[]; onChange: (v: Pair[]) => void; bathrooms: Pair[]; onBathroomsChange: (v: Pair[]) => void }) {
   const rooms = list.length ? list : [["Bedroom", ""]] as Pair[];
   const bedrooms = rooms.filter(([name]) => /bedroom/i.test(name)).length;
   const living = rooms.filter(([name]) => /living|lounge/i.test(name)).length;
@@ -272,8 +298,8 @@ function RoomsLivingSpaces({ list, onChange }: { list: Pair[]; onChange: (v: Pai
     </section>
     <section className="rounded-[1.75rem] bg-background p-5 md:p-6 sm:col-span-2">
       <div className="flex items-start justify-between"><div><h2 className="text-lg font-medium">Bathrooms</h2><p className="text-xs text-muted-foreground">Configure bathroom details separately</p></div><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{bathrooms.length} Bathrooms</span></div>
-      <div className="mt-3 space-y-2">{bathrooms.map(([type, size], i) => <div key={i} className={card}><div className="mb-2 flex justify-between text-sm font-medium"><span>Bathroom {String(i + 1).padStart(2, "0")}</span><button type="button" onClick={() => setBathrooms(bathrooms.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive" aria-label="Remove bathroom">×</button></div><div className="grid gap-2 sm:grid-cols-2"><label className="text-xs text-muted-foreground">Bathroom type<input className={miniField} value={type} onChange={(e) => setBathrooms(bathrooms.map((r, j) => j === i ? [e.target.value, r[1]] : r))} placeholder="Ensuite" /></label><label className="text-xs text-muted-foreground">Area (m²)<input className={miniField} value={size} onChange={(e) => setBathrooms(bathrooms.map((r, j) => j === i ? [r[0], e.target.value] : r))} placeholder="8" /></label></div></div>)}</div>
-      <button type="button" onClick={() => setBathrooms([...bathrooms, ["Common", ""]])} className="mt-2 w-full rounded-md border-2 border-primary px-3 py-2.5 text-left text-base font-medium text-primary hover:bg-primary/5">＋ Add another bathroom</button>
+      <div className="mt-3 space-y-2">{bathrooms.map(([type, size], i) => <div key={i} className={card}><div className="mb-2 flex justify-between text-sm font-medium"><span>Bathroom {String(i + 1).padStart(2, "0")}</span><button type="button" onClick={() => onBathroomsChange(bathrooms.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-destructive" aria-label="Remove bathroom">×</button></div><div className="grid gap-2 sm:grid-cols-2"><label className="text-xs text-muted-foreground">Bathroom type<input className={miniField} value={type} onChange={(e) => onBathroomsChange(bathrooms.map((r, j) => j === i ? [e.target.value, r[1]] : r))} placeholder="Ensuite" /></label><label className="text-xs text-muted-foreground">Area (m²)<input className={miniField} value={size} onChange={(e) => onBathroomsChange(bathrooms.map((r, j) => j === i ? [r[0], e.target.value] : r))} placeholder="8" /></label></div></div>)}</div>
+      <button type="button" onClick={() => onBathroomsChange([...bathrooms, ["Common", ""]])} className="mt-2 w-full rounded-md border-2 border-primary px-3 py-2.5 text-left text-base font-medium text-primary hover:bg-primary/5">＋ Add another bathroom</button>
       <div className="mt-3 rounded-xl bg-cream p-3"><strong className="text-sm">Property room summary</strong><div className="mt-2 grid grid-cols-3 gap-2 text-center">{[[bedrooms, "Bedrooms"], [bathrooms.length, "Bathrooms"], [living, "Living areas"]].map(([n, label]) => <div key={label} className="rounded-lg bg-background p-2"><strong className="block text-sm">{n}</strong><span className="text-xs text-muted-foreground">{label}</span></div>)}</div></div>
     </section>
   </>;

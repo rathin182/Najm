@@ -44,9 +44,9 @@ export async function POST(request: Request) {
   }
 
   const filename = `${crypto.randomUUID()}.${mediaType.extension}`;
-  const uploadDirectory = join(process.cwd(), "public", "uploads");
+  const uploadDirectory = join(process.cwd(), "public", "properties", "uploads");
   await mkdir(uploadDirectory, { recursive: true });
   await writeFile(join(uploadDirectory, filename), bytes, { flag: "wx" });
 
-  return Response.json({ url: `/uploads/${filename}`, kind: isVideo ? "video" : "image" });
+  return Response.json({ url: `/properties/uploads/${filename}`, kind: isVideo ? "video" : "image" });
 }

@@ -15,6 +15,7 @@ export type PropertyExtra = {
   lat: number; lng: number; serviceCharge: number; handover: string; video: string;
   rooms: Pair[]; nearby: Pair[]; plan: Pair[]; features: string[];
   agentName: string; agentPhone: string; seoTitle: string; seoDescription: string;
+  bathrooms?: Pair[];
 };
 export type AdminProperty = Property & { views: number; published: boolean; details?: PropertyExtra };
 
@@ -119,7 +120,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(() => ({
     ...data, ready: ready && sessionStatus !== "loading", user, can: PERMS[user?.role ?? "Viewer"], login,
     logout: () => {},
-    saveProperty: (p) => setData((d) => ({ ...d, properties: upsert(d.properties, p) })),
+    saveProperty: (p) => setData((d) => {
+      const seeded = PROPERTIES.find((item) => item.id === p.id);
+      const exists = d.properties.some((item) => item.id === p.id);
+      const properties = seeded && !exists ? d.properties.filter((item) => item.id !== seeded.id) : d.properties;
+      return { ...d, properties: upsert(properties, p) };
+    }),
     deleteProperty: (id) => setData((d) => ({ ...d, properties: d.properties.filter((p) => p.id !== id) })),
     updateEnquiry: (id, patch) => setData((d) => ({ ...d, enquiries: d.enquiries.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
     deleteEnquiry: (id) => setData((d) => ({ ...d, enquiries: d.enquiries.filter((e) => e.id !== id) })),

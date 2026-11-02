@@ -247,6 +247,16 @@ model Enquiry {
 }
 
 
+// One row per property per day; powers the admin "Traffic & enquiries" chart.
+model ListingViewDaily {
+  day          DateTime @db.Date
+  propertySlug String
+  views        Int      @default(0)
+
+  @@id([day, propertySlug])
+  @@index([day])
+}
+
 model SavedListing {
   userId    String
   listingId String

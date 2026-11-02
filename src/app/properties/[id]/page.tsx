@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
 import { PROPERTIES, formatSAR, propertyDetails } from "@/data/properties";
 import { buildBrochureHtml } from "@/lib/brochure-template";
@@ -17,6 +17,14 @@ function Detail() {
   const d = propertyDetails(p);
   const [active, setActive] = useState(0);
   useReveal([p.id]);
+  useEffect(() => {
+    const key = `najm:viewed:${p.id}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {}
+    void fetch("/api/listing-views", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertySlug: p.id }), keepalive: true }).catch(() => {});
+  }, [p.id]);
   useLiquidGlass(".lg-detail", { frost: 1.5, refraction: 0.006, bevelDepth: 0.06, bevelWidth: 0.1 });
 
   const downloadBrochure = () => {

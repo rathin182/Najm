@@ -6,17 +6,18 @@ import { ArrowUpRight, Building2, Eye, Inbox, Plus, Wallet } from "lucide-react"
 import { fmtDate, useAdmin } from "@/lib/admin-store";
 import { Panel, STATUS_STYLE } from "@/components/admin/AdminShell";
 
-
 const C = ["var(--primary)", "var(--ink)", "oklch(0.75 0.06 85)", "oklch(0.62 0.07 158)", "oklch(0.85 0.03 85)"];
 
 type DashboardStats = {
   pipeline: Record<"NEW" | "CONTACTED" | "VISIT_SCHEDULED" | "CLOSED" | "NOT_INTERESTED", number>;
   totalEnquiries: number;
   totalViews: number;
+  liveListings: number;
   portfolioValue: number;
   conversionRate: number;
   sources: { name: string; value: number }[];
   byCity: { name: string; value: number }[];
+  trend: { date: string; views: number; enquiries: number }[];
   recentEnquiries: { id: string; name: string; message: string; status: keyof DashboardStats["pipeline"]; createdAt: string }[];
   topViewed: { id: string; title: string; views: number; image: string | null }[];
 };
@@ -32,14 +33,15 @@ const PIPELINE = [
 const STATUS_LABEL: Record<string, string> = { NEW: "New", CONTACTED: "Contacted", VISIT_SCHEDULED: "Viewing", CLOSED: "Closed", NOT_INTERESTED: "Not interested" };
 
 function Dashboard() {
-  const { properties, enquiries, user } = useAdmin();
-const [contactCount, setContactCount] = useState<number | null>(null);
-useEffect(() => {
-  fetch("/api/admin/contacts", { cache: "no-store" })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((d: { items: unknown[] } | null) => d && setContactCount(d.items.length))
-    .catch(() => {});
-}, []);
+  const { user } = useAdmin();
+  const [contactCount, setContactCount] = useState<number | null>(null);
+  
+  useEffect(() => {
+    fetch("/api/admin/contacts", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { items: unknown[] } | null) => d && setContactCount(d.items.length))
+      .catch(() => {});
+  }, []);
 
   const [live, setLive] = useState<DashboardStats | null>(null);
   useEffect(() => {
@@ -54,20 +56,23 @@ useEffect(() => {
     return [
       { label: "Total listing views", value: dash((live?.totalViews ?? 0).toLocaleString("en")), icon: Eye },
       { label: "New enquiries", value: dash(String(live?.pipeline.NEW ?? 0)), icon: Inbox },
-      // Active listings is intentionally unchanged for now
-      { label: "Active listings", value: String(properties.filter((p) => p.published).length), icon: Building2 },
+      { label: "Active listings", value: dash(String(live?.liveListings ?? 0)), icon: Building2 },
       { label: "Portfolio value", value: dash(`SAR ${Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(live?.portfolioValue ?? 0)}`), icon: Wallet },
       { label: "Conversion", value: dash(`${live?.conversionRate ?? 0}%`), icon: ArrowUpRight },
     ];
-  }, [properties, live]);
+  }, [live]);
 
-  const trend = useMemo(() => Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (13 - i));
-    const key = d.toDateString();
-    return { day: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }), enquiries: enquiries.filter((e) => new Date(e.date).toDateString() === key).length, views: 180 + ((i * 53) % 120) + i * 9 };
-  }), [enquiries]);
+  const trend = useMemo(
+    () =>
+      (live?.trend ?? []).map((t) => ({
+        day: new Date(`${t.date}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }),
+        views: t.views,
+        enquiries: t.enquiries,
+      })),
+    [live],
+  );
 
-  const byCity = live?.byCity ?? [];
+  const byCity = (live?.byCity ?? []).slice(0, 5);
   const bySource = live?.sources ?? [];
   const topViewed = live?.topViewed ?? [];
   const recent = live?.recentEnquiries ?? [];
@@ -81,7 +86,7 @@ useEffect(() => {
         <div className="relative overflow-hidden rounded-[2rem] bg-primary p-8 text-primary-foreground md:p-10">
           <p className="opacity-70">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}</p>
           <h1 className="mt-3 text-4xl font-medium tracking-tight md:text-5xl">Welcome back, <span className="fancy !text-primary-foreground">{user?.name.split(" ")[0]}</span></h1>
-          <p className="mt-3 max-w-lg text-lg opacity-80">You have {enquiries.filter((e) => e.status === "New").length} new enquiries waiting and {properties.filter((p) => p.published).length} listings live on the site.</p>
+          <p className="mt-3 max-w-lg text-lg opacity-80">You have {live?.pipeline.NEW ?? "—"} new enquiries waiting and {live?.liveListings ?? "—"} listings live on the site.</p>
           <div className="relative z-10 mt-8 flex flex-wrap gap-2">
             <Link href="/admin/properties/new" className="flex items-center gap-2 rounded-full bg-background px-5 py-3 text-foreground hover:bg-cream"><Plus className="h-4 w-4" />Add property</Link>
             <Link href="/admin/enquiries" className="flex items-center gap-2 rounded-full bg-primary-foreground/15 px-5 py-3 hover:bg-primary-foreground/25"><Inbox className="h-4 w-4" />Reply to enquiries</Link>
@@ -193,14 +198,23 @@ useEffect(() => {
           </ul>
         </Panel>
         <Panel>
-          <p className="text-xl font-medium">Listings by city · views</p>
+          <p className="text-xl font-medium">Listings by city</p>
           <div className="mt-4 h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={byCity}>
-                <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
+              {/* Smaller category gap (5%) and zero side margins so bars are thicker with only a slight gap */}
+              <BarChart data={byCity} margin={{ top: 16, right: 0, left: 0, bottom: 0 }} barCategoryGap="5%">
+                <XAxis 
+                  dataKey="name" 
+                  tickLine={false} 
+                  axisLine={false} 
+                  fontSize={12} 
+                  interval={0} 
+                  tickMargin={12} 
+                  tickFormatter={(value) => value.length > 8 ? `${value.substring(0, 8)}...` : value}
+                />
                 <YAxis hide allowDecimals={false} />
                 <Tooltip cursor={{ fill: "var(--cream)" }} contentStyle={{ borderRadius: 16, border: "none" }} formatter={(v) => [Number(v).toLocaleString("en"), "Views"]} />
-                <Bar dataKey="value" fill="var(--primary)" radius={[10, 10, 10, 10]} />
+                <Bar dataKey="value" fill="var(--primary)" radius={[12, 12, 0, 0]} minPointSize={18} />
               </BarChart>
             </ResponsiveContainer>
           </div>

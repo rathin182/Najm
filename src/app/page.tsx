@@ -6,7 +6,7 @@ import { ArrowDownRight, ArrowUpRight, ChevronDown, Home as HomeIcon, MapPin, Pl
 const hero = '/images/hero2.jpg';
 const heroCut = '/images/hero2-cut.png';
 import { GigaProjects, WhyNajm } from "@/components/site/HomeSections";
-import { BUDGETS, CITIES, PROPERTIES, TYPES, formatSAR } from "@/data/properties";
+import { BUDGETS, CITIES, PROPERTIES, type Property, TYPES, formatSAR } from "@/data/properties";
 import { ARTICLES } from "@/data/site";
 import { PropertyCard } from "@/components/site/PropertyCard";
 import { SectionTitle } from "@/components/site/Layout";
@@ -129,7 +129,43 @@ const FAQ = [
 function Home() {
   useReveal();
   const [faq, setFaq] = useState<number | null>(0);
-  const featured = [...PROPERTIES.filter((p) => p.featured), ...PROPERTIES.filter((p) => !p.featured)].slice(0, 8);
+  const [featured, setFeatured] = useState<Property[]>([]);
+  const [otherProperties, setOtherProperties] = useState<Property[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/listings/featured", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load properties.");
+        return response.json() as Promise<Property[]>;
+      })
+      .then((listings) => {
+        if (!cancelled && Array.isArray(listings)) setFeatured(listings);
+      })
+      .catch((error) => console.error("Homepage properties could not be loaded", error));
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/listings", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load listings.");
+        return response.json() as Promise<Property[]>;
+      })
+      .then((listings) => {
+        if (cancelled || !Array.isArray(listings)) return;
+        const randomListings = [...listings];
+        for (let i = randomListings.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [randomListings[i], randomListings[j]] = [randomListings[j]!, randomListings[i]!];
+        }
+        setOtherProperties(randomListings.slice(0, 4));
+      })
+      .catch((error) => console.error("Other homepage properties could not be loaded", error));
+    return () => { cancelled = true; };
+  }, []);
+
   const vault = PROPERTIES.filter((p) => p.investment).slice(0, 4);
 
   return (
@@ -185,7 +221,7 @@ function Home() {
         <div className="mx-auto max-w-[1400px]">
           <SectionTitle word="More" rest=" to explore" />
           <div className="mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
-            {PROPERTIES.slice(-4).map((p) => <PropertyCard key={p.id} p={p} />)}
+            {otherProperties.map((p) => <PropertyCard key={p.id} p={p} />)}
           </div>
         </div>
       </section>

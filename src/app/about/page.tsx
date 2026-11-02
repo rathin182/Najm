@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 const office = '/images/office.jpg';
-import { TEAM } from "@/data/site";
+import { TeamMembers } from "@/components/site/TeamMembers";
 import { useReveal } from "@/components/site/motion";
 
 
@@ -55,17 +55,8 @@ function About() {
 
         <section className="mt-28">
           <h2 className="display-lg" data-reveal>Meet the <span className="fancy">team</span></h2>
-          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {TEAM.map((m) => (
-              <div key={m.name} data-reveal>
-                <div className="aspect-[4/5] overflow-hidden rounded-[2rem] bg-cream">
-                  <img src={m.img} alt={m.name} loading="lazy" width={768} height={960} className="h-full w-full object-cover" />
-                </div>
-                <p className="mt-5 text-xl font-medium">{m.name}</p>
-                <p className="text-primary">{m.role}</p>
-                <p className="mt-2 text-muted-foreground">{m.bio}</p>
-              </div>
-            ))}
+          <div className="mt-12">
+            <TeamMembers />
           </div>
         </section>
 

@@ -2,7 +2,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Building2, Contact as ContactIcon, ExternalLink, FileText, Inbox, LayoutDashboard, LogOut, Users } from "lucide-react";
+import { Building2, Contact as ContactIcon, ExternalLink, FileText, Inbox, Info, LayoutDashboard, LogOut, Rocket, Users, } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar,
@@ -15,8 +15,10 @@ const NAV = [
   { title: "Enquiries", url: "/admin/enquiries", icon: Inbox },
   { title: "Contacts", url: "/admin/contacts", icon: ContactIcon },
   { title: "Properties", url: "/admin/properties", icon: Building2 },
+  { title: "Future Projects", url: "/admin/future-projects", icon: Rocket },
+  { title: "About", url: "/admin/about", icon: Info },
   { title: "Staff", url: "/admin/staff", icon: Users },
-  { title: "Contact Info", url: "/admin/contact-info", icon: FileText }
+  { title: "Contact Info", url: "/admin/contact-info", icon: FileText },
 ] as const;
 
 function AppSidebar() {

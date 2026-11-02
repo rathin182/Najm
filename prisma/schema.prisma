@@ -339,6 +339,44 @@ model ContactCard {
 
   @@index([sortOrder, createdAt])
 }
+
+model FutureProject {
+  id           String   @id @default(cuid())
+  name         String
+  region       String
+  status       String
+  deadlineDate DateTime? @db.Date
+  deadlineNote String   @default("")
+  budget       Float?
+  text         String
+  image        String
+  imageAlt     String   @default("")
+  published    Boolean  @default(false)
+  sortOrder    Int      @default(0)
+  latitude     Float?
+  longitude    Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([published, sortOrder])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  bio       String   @db.Text
+  image     String
+  imageAlt  String   @default("")
+  joinedAt  DateTime? @db.Date
+  specialty String   @default("")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder, createdAt])
+}
+
 enum ContactType {
   BUYER
   INVESTOR

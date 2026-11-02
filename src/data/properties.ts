@@ -5,9 +5,6 @@ const p4 = '/images/p4.jpg';
 const p5 = '/images/p5.jpg';
 const p6 = '/images/p6.jpg';
 const hero = '/images/hero.jpg';
-const g1 = '/images/g1.jpg';
-const g2 = '/images/g2.jpg';
-const g3 = '/images/g3.jpg';
 
 export type Property = {
   id: string;
@@ -128,12 +125,6 @@ export const PROPERTIES: Property[] = [
     description: "A bright corner townhouse with private garden and rooftop, minutes from Half Moon Bay and Al Khobar's international schools.",
     images: [p5, p2, p4], status: "Ready", year: 2024, amenities: amen.slice(2, 8),
   },
-];
-
-export const GIGA_PROJECTS = [
-  { name: "NEOM — The Line", region: "Tabuk Province", status: "Under construction", deadline: "2030 (phase one)", budget: "SAR 1.9 trillion", text: "A 170 km linear city redefining urban living — zero cars, zero streets, powered entirely by renewable energy.", image: g1 },
-  { name: "Red Sea Global", region: "West Coast", status: "Phased opening", deadline: "2030 (full completion)", budget: "SAR 75 billion", text: "A regenerative tourism destination across 90 pristine islands, with ultra-luxury resorts and residences.", image: g2 },
-  { name: "Diriyah Gate", region: "Riyadh", status: "Building now", deadline: "2030", budget: "SAR 236 billion", text: "The birthplace of the Kingdom reborn as a world-class cultural, living and hospitality district.", image: g3 },
 ];
 
 /** Approximate map coordinates per district (demo data). */

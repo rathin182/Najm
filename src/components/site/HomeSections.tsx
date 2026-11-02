@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, BadgeCheck, Building2, Handshake, Landmark, LineChart, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { GIGA_PROJECTS } from "@/data/properties";
-import { TEAM } from "@/data/site";
+import { formatBudget, formatDeadline, type FutureProject } from "@/lib/future-projects";
+import { TeamMembers } from "@/components/site/TeamMembers";
 const office = '/images/office.jpg';
 const p2 = '/images/p2.jpg';
 const p3 = '/images/p3.jpg';
@@ -12,6 +12,28 @@ const p3 = '/images/p3.jpg';
 export function GigaProjects() {
   const outer = useRef<HTMLElement>(null);
   const track = useRef<HTMLDivElement>(null);
+  const [projects, setProjects] = useState<FutureProject[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const section = outer.current;
+    if (!section) return;
+    let cancelled = false;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      void fetch("/api/future-projects", { cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("Could not load projects.");
+          return response.json() as Promise<FutureProject[]>;
+        })
+        .then((items) => { if (!cancelled) setProjects(items); })
+        .catch(() => { if (!cancelled) setProjects([]); })
+        .finally(() => { if (!cancelled) setLoaded(true); });
+    }, { rootMargin: "400px" });
+    observer.observe(section);
+    return () => { cancelled = true; observer.disconnect(); };
+  }, []);
 
   useEffect(() => {
     const el = track.current, sec = outer.current;
@@ -37,7 +59,9 @@ export function GigaProjects() {
     mq.addEventListener("change", size);
     const t = setTimeout(size, 600);
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); mq.removeEventListener("change", size); clearTimeout(t); cancelAnimationFrame(raf); };
-  }, []);
+  }, [projects]);
+
+  if (loaded && projects.length === 0) return null;
 
   return (
     <section ref={outer} id="projects" className="relative bg-ink text-ink-foreground">
@@ -47,20 +71,20 @@ export function GigaProjects() {
           <h2 className="display-lg">The <span className="fancy">Sovereign</span> Giga Projects</h2>
         </div>
         <div ref={track} className="mt-10 flex gap-6 overflow-x-auto px-6 pb-4 [scrollbar-width:none] will-change-transform lg:w-max lg:overflow-visible lg:px-[max(1.5rem,calc((100vw-1440px)/2+1.5rem))]">
-          {GIGA_PROJECTS.map((g, i) => (
-            <article key={g.name} className="group relative h-[70svh] min-h-[460px] w-[86vw] shrink-0 overflow-hidden rounded-[2.5rem] lg:h-[64svh] lg:w-[min(60rem,70vw)]">
-              <img src={g.image} alt={g.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.5s] group-hover:scale-105" />
-              <p className="absolute left-8 top-6 text-7xl font-medium tracking-tighter text-ink-foreground/85 md:text-8xl">0{i + 1}</p>
+          {projects.map((project, index) => (
+            <article key={project.id} className="group relative h-[70svh] min-h-[460px] w-[86vw] shrink-0 overflow-hidden rounded-[2.5rem] lg:h-[64svh] lg:w-[min(60rem,70vw)]">
+              <img src={project.image} alt={project.imageAlt || project.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.5s] group-hover:scale-105" />
+              <p className="absolute left-8 top-6 text-7xl font-medium tracking-tighter text-ink-foreground/85 md:text-8xl">{String(index + 1).padStart(2, "0")}</p>
               <div className="absolute inset-x-3 bottom-3 grid gap-6 rounded-[2rem] bg-ink/35 p-6 backdrop-blur-md md:inset-x-5 md:bottom-5 md:grid-cols-[1.4fr_1fr] md:p-8">
                 <div>
-                  <p className="text-sm opacity-80">{g.status} · {g.region}</p>
-                  <h3 className="mt-2 text-3xl font-medium tracking-tight md:text-4xl">{g.name}</h3>
-                  <p className="mt-3 max-w-xl text-base opacity-85">{g.text}</p>
+                  <p className="text-sm opacity-80">{project.status} · {project.region}</p>
+                  <h3 className="mt-2 text-3xl font-medium tracking-tight md:text-4xl">{project.name}</h3>
+                  <p className="mt-3 max-w-xl text-base opacity-85">{project.text}</p>
                 </div>
                 <div className="flex flex-col justify-between gap-5">
                   <dl className="grid grid-cols-2 gap-4">
-                    <div><dt className="text-sm opacity-70">Est. deadline</dt><dd className="mt-1 text-lg font-medium">{g.deadline}</dd></div>
-                    <div><dt className="text-sm opacity-70">Budget</dt><dd className="mt-1 text-lg font-medium">{g.budget}</dd></div>
+                    <div><dt className="text-sm opacity-70">Est. deadline</dt><dd className="mt-1 text-lg font-medium">{formatDeadline(project)}</dd></div>
+                    <div><dt className="text-sm opacity-70">Budget</dt><dd className="mt-1 text-lg font-medium">{project.budget === null ? "Not disclosed" : formatBudget(project.budget)}</dd></div>
                   </dl>
                   <a href="#contact" className="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base text-primary-foreground transition-colors hover:bg-background hover:text-foreground">
                     Register interest <ArrowUpRight className="h-4 w-4" />
@@ -68,6 +92,9 @@ export function GigaProjects() {
                 </div>
               </div>
             </article>
+          ))}
+          {!loaded && Array.from({ length: 3 }, (_, index) => (
+            <div key={`loading-${index}`} aria-hidden className="h-[70svh] min-h-[460px] w-[86vw] shrink-0 animate-pulse rounded-[2.5rem] bg-ink-foreground/10 lg:h-[64svh] lg:w-[min(60rem,70vw)]" />
           ))}
         </div>
       </div>
@@ -153,16 +180,8 @@ export function WhyNajm() {
             <h3 className="display-md" data-reveal>The <span className="fancy">people</span> behind Najm</h3>
             <Link href="/about" className="flex items-center gap-2 text-lg text-primary hover:opacity-70" data-reveal>Meet the full team <ArrowUpRight className="h-5 w-5" /></Link>
           </div>
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {TEAM.map((m) => (
-              <div key={m.name} data-reveal>
-                <div className="aspect-[4/5] overflow-hidden rounded-[2rem] bg-cream">
-                  <img src={m.img} alt={m.name} loading="lazy" width={768} height={960} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
-                </div>
-                <p className="mt-4 text-xl font-medium">{m.name}</p>
-                <p className="text-muted-foreground">{m.role}</p>
-              </div>
-            ))}
+          <div className="mt-10">
+            <TeamMembers />
           </div>
         </div>
       </div>

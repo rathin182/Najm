@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
 import { PROPERTIES, formatSAR, propertyDetails } from "@/data/properties";
+import { buildBrochureHtml } from "@/lib/brochure-template";
 const advisor = '/images/t2.jpg';
 import { EnquiryForm } from "@/components/site/EnquiryForm";
 import { PropertyCard } from "@/components/site/PropertyCard";
@@ -19,14 +20,24 @@ function Detail() {
   useLiquidGlass(".lg-detail", { frost: 1.5, refraction: 0.006, bevelDepth: 0.06, bevelWidth: 0.1 });
 
   const downloadBrochure = () => {
-    const text = `NAJM ESTATE — PROPERTY BROCHURE\n\n${p.title}\n${p.district}, ${p.city}\n\nPrice: ${formatSAR(p.price)} (${formatSAR(d.pricePerM2)}/m²)\nType: ${p.type}\nBuilt-up area: ${p.area} m²\nPlot: ${d.plot} m²\nBedrooms: ${p.beds}\nBathrooms: ${p.baths}\nParking: ${d.parking}\nStatus: ${p.status}\nCompletion: ${p.year}\nDeveloper: ${d.developer}\n\n${p.description}\n\nAmenities:\n${p.amenities.map((a) => "• " + a).join("\n")}\n\nhello@najmestate.sa · +966 11 000 0000`;
-    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  const html = buildBrochureHtml(p, d, window.location.origin);
+  // Open the styled brochure in a new tab; the print dialog lets the visitor save it as a PDF.
+  const w = window.open("", "_blank");
+  if (w) {
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  } else {
+    // Pop-up blocked: fall back to downloading the brochure as an HTML file
+    const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${p.id}-brochure.txt`;
+    a.download = `${p.id}-brochure.html`;
     a.click();
     URL.revokeObjectURL(url);
-  };
+  }
+  void fetch("/api/brochure-downloads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertySlug: p.id }), keepalive: true }).catch(() => {});
+};
 
   const facts = [
     { icon: Maximize, label: "Built-up area", value: `${p.area} m²` },

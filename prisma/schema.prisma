@@ -191,6 +191,7 @@ model Listing {
   publishedAt      DateTime?
   expiresAt        DateTime?
   viewCount        Int              @default(0)
+  brochureDownloads Int             @default(0)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -244,6 +245,8 @@ model Enquiry {
   @@index([senderId])
   @@index([status, createdAt])
 }
+
+
 model SavedListing {
   userId    String
   listingId String

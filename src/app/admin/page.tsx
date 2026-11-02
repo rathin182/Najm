@@ -9,6 +9,28 @@ import { Panel, STATUS_STYLE } from "@/components/admin/AdminShell";
 
 const C = ["var(--primary)", "var(--ink)", "oklch(0.75 0.06 85)", "oklch(0.62 0.07 158)", "oklch(0.85 0.03 85)"];
 
+type DashboardStats = {
+  pipeline: Record<"NEW" | "CONTACTED" | "VISIT_SCHEDULED" | "CLOSED" | "NOT_INTERESTED", number>;
+  totalEnquiries: number;
+  totalViews: number;
+  portfolioValue: number;
+  conversionRate: number;
+  sources: { name: string; value: number }[];
+  byCity: { name: string; value: number }[];
+  recentEnquiries: { id: string; name: string; message: string; status: keyof DashboardStats["pipeline"]; createdAt: string }[];
+  topViewed: { id: string; title: string; views: number; image: string | null }[];
+};
+
+const PIPELINE = [
+  { key: "NEW", label: "New" },
+  { key: "CONTACTED", label: "Contacted" },
+  { key: "VISIT_SCHEDULED", label: "Visit scheduled" },
+  { key: "CLOSED", label: "Closed" },
+  { key: "NOT_INTERESTED", label: "Not interested" },
+] as const;
+
+const STATUS_LABEL: Record<string, string> = { NEW: "New", CONTACTED: "Contacted", VISIT_SCHEDULED: "Viewing", CLOSED: "Closed", NOT_INTERESTED: "Not interested" };
+
 function Dashboard() {
   const { properties, enquiries, user } = useAdmin();
 const [contactCount, setContactCount] = useState<number | null>(null);
@@ -19,19 +41,25 @@ useEffect(() => {
     .catch(() => {});
 }, []);
 
+  const [live, setLive] = useState<DashboardStats | null>(null);
+  useEffect(() => {
+    fetch("/api/admin/dashboard", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: DashboardStats | null) => d && setLive(d))
+      .catch(() => {});
+  }, []);
+
   const stats = useMemo(() => {
-    const views = properties.reduce((s, p) => s + p.views, 0);
-    const value = properties.reduce((s, p) => s + p.price, 0);
-    const fresh = enquiries.filter((e) => e.status === "New").length;
-    const closed = enquiries.filter((e) => e.status === "Closed").length;
+    const dash = (v: string) => (live ? v : "—");
     return [
-      { label: "Total listing views", value: views.toLocaleString("en"), icon: Eye },
-      { label: "New enquiries", value: String(fresh), icon: Inbox },
+      { label: "Total listing views", value: dash((live?.totalViews ?? 0).toLocaleString("en")), icon: Eye },
+      { label: "New enquiries", value: dash(String(live?.pipeline.NEW ?? 0)), icon: Inbox },
+      // Active listings is intentionally unchanged for now
       { label: "Active listings", value: String(properties.filter((p) => p.published).length), icon: Building2 },
-      { label: "Portfolio value", value: `SAR ${Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(value)}`, icon: Wallet },
-      { label: "Conversion", value: `${enquiries.length ? Math.round((closed / enquiries.length) * 100) : 0}%`, icon: ArrowUpRight },
+      { label: "Portfolio value", value: dash(`SAR ${Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(live?.portfolioValue ?? 0)}`), icon: Wallet },
+      { label: "Conversion", value: dash(`${live?.conversionRate ?? 0}%`), icon: ArrowUpRight },
     ];
-  }, [properties, enquiries]);
+  }, [properties, live]);
 
   const trend = useMemo(() => Array.from({ length: 14 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (13 - i));
@@ -39,12 +67,13 @@ useEffect(() => {
     return { day: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }), enquiries: enquiries.filter((e) => new Date(e.date).toDateString() === key).length, views: 180 + ((i * 53) % 120) + i * 9 };
   }), [enquiries]);
 
-  const byCity = useMemo(() => Object.entries(properties.reduce<Record<string, number>>((a, p) => ((a[p.city] = (a[p.city] ?? 0) + 1), a), {})).map(([name, value]) => ({ name, value })), [properties]);
-  const bySource = useMemo(() => Object.entries(enquiries.reduce<Record<string, number>>((a, e) => ((a[e.source] = (a[e.source] ?? 0) + 1), a), {})).map(([name, value]) => ({ name, value })), [enquiries]);
-  const topViewed = [...properties].sort((a, b) => b.views - a.views).slice(0, 5);
-  const recent = [...enquiries].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6);
-  const maxViews = topViewed[0]?.views ?? 1;
-  const pipeline = (["New", "Contacted", "Viewing", "Closed"] as const).map((status, i) => ({ status, n: enquiries.filter((e) => e.status === status).length, color: C[i]! }));
+  const byCity = live?.byCity ?? [];
+  const bySource = live?.sources ?? [];
+  const topViewed = live?.topViewed ?? [];
+  const recent = live?.recentEnquiries ?? [];
+  const maxViews = Math.max(1, topViewed[0]?.views ?? 1);
+  const pipeline = PIPELINE.map((st, i) => ({ status: st.label, n: live?.pipeline[st.key] ?? 0, color: C[i]! }));
+  const pipelineTotal = live?.totalEnquiries ?? 0;
 
   return (
     <div>
@@ -61,9 +90,9 @@ useEffect(() => {
         </div>
         <Panel>
           <p className="text-xl font-medium">Enquiry pipeline</p>
-          <p className="text-sm text-muted-foreground">{enquiries.length} enquiries in total</p>
+          <p className="text-sm text-muted-foreground">{pipelineTotal} enquiries in total</p>
           <div className="mt-6 flex h-4 overflow-hidden rounded-full bg-cream">
-            {pipeline.map((s) => <div key={s.status} style={{ width: `${(s.n / Math.max(1, enquiries.length)) * 100}%`, background: s.color }} />)}
+            {pipeline.map((s) => <div key={s.status} style={{ width: `${(s.n / Math.max(1, pipelineTotal)) * 100}%`, background: s.color }} />)}
           </div>
           <ul className="mt-6 grid grid-cols-2 gap-3">
             {pipeline.map((s) => (
@@ -141,8 +170,8 @@ useEffect(() => {
                   <p className="truncate text-sm text-muted-foreground">{e.message}</p>
                 </div>
                 <div className="text-right">
-                  <span className={`rounded-full px-3 py-1 text-xs ${STATUS_STYLE[e.status]}`}>{e.status}</span>
-                  <p className="mt-1 text-xs text-muted-foreground">{fmtDate(e.date)}</p>
+                  <span className={`rounded-full px-3 py-1 text-xs ${STATUS_STYLE[STATUS_LABEL[e.status]!] ?? "bg-muted text-muted-foreground"}`}>{STATUS_LABEL[e.status]}</span>
+                  <p className="mt-1 text-xs text-muted-foreground">{fmtDate(e.createdAt)}</p>
                 </div>
               </li>
             ))}
@@ -153,7 +182,7 @@ useEffect(() => {
           <ul className="mt-4 space-y-4">
             {topViewed.map((p) => (
               <li key={p.id} className="flex items-center gap-3">
-                <img src={p.images[0]} alt="" className="h-12 w-12 rounded-xl object-cover" />
+                {p.image ? <img src={p.image} alt="" className="h-12 w-12 rounded-xl object-cover" /> : <span className="h-12 w-12 rounded-xl bg-cream" />}
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{p.title}</p>
                   <div className="mt-1.5 h-1.5 rounded-full bg-cream"><div className="h-full rounded-full bg-primary" style={{ width: `${(p.views / maxViews) * 100}%` }} /></div>
@@ -164,13 +193,13 @@ useEffect(() => {
           </ul>
         </Panel>
         <Panel>
-          <p className="text-xl font-medium">Listings by city</p>
+          <p className="text-xl font-medium">Listings by city · views</p>
           <div className="mt-4 h-56">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={byCity}>
                 <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={12} />
                 <YAxis hide allowDecimals={false} />
-                <Tooltip cursor={{ fill: "var(--cream)" }} contentStyle={{ borderRadius: 16, border: "none" }} />
+                <Tooltip cursor={{ fill: "var(--cream)" }} contentStyle={{ borderRadius: 16, border: "none" }} formatter={(v) => [Number(v).toLocaleString("en"), "Views"]} />
                 <Bar dataKey="value" fill="var(--primary)" radius={[10, 10, 10, 10]} />
               </BarChart>
             </ResponsiveContainer>

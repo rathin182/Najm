@@ -416,3 +416,42 @@ model ContactSettings {
   mapZoom       Int      @default(13)
   updatedAt     DateTime @updatedAt
 }
+
+enum ArticleCategory {
+  REAL_ESTATE
+  INVESTMENT
+  MARKET_REPORT
+  BUYER_GUIDE
+  SELLER_GUIDE
+  FINANCING
+  NEIGHBOURHOODS
+  LIFESTYLE
+  LEGAL_GUIDANCE
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+model Article {
+  id             String          @id @default(cuid())
+  title          String
+  excerpt        String?         @db.VarChar(300)
+
+  category       ArticleCategory?
+  customCategory String?         @db.VarChar(60)
+
+  coverImage     String?
+  content        String          @default("") @db.Text
+
+  status         ArticleStatus   @default(DRAFT)
+  readMinutes    Int             @default(1)
+
+  publishedAt    DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([status, publishedAt])
+  @@index([category])
+  @@index([createdAt])
+}

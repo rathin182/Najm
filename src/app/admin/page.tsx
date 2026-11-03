@@ -45,10 +45,17 @@ function Dashboard() {
 
   const [live, setLive] = useState<DashboardStats | null>(null);
   useEffect(() => {
-    fetch("/api/admin/dashboard", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d: DashboardStats | null) => d && setLive(d))
-      .catch(() => {});
+    let cancelled = false;
+    const refresh = () => {
+      fetch("/api/admin/dashboard", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: DashboardStats | null) => { if (!cancelled && d) setLive(d); })
+        .catch(() => {});
+    };
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    return () => { cancelled = true; window.clearInterval(interval); window.removeEventListener("focus", refresh); };
   }, []);
 
   const stats = useMemo(() => {

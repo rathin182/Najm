@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Property } from "@/data/properties";
 import { ArrowLeft, ArrowRight, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
 import { PROPERTIES, formatSAR, propertyDetails } from "@/data/properties";
@@ -21,12 +21,8 @@ function Detail() {
     if (PROPERTIES.some((item) => item.id === id)) { setLoaded(true); return () => { cancelled = true; }; }
     setProperty(null);
     setLoaded(false);
-    void fetch(`/api/listings?paginated=1&page=1&pageSize=1&q=${encodeURIComponent(id)}`, { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Could not load this property.");
-        const data = await response.json() as { items: Property[] };
-        return data.items.find((item) => item.id === id) ?? null;
-      })
+    void fetch(`/api/listings/${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() as Promise<Property> : null)
       .then((property) => { if (!cancelled) setProperty(property); })
       .catch(() => { if (!cancelled) setProperty(null); })
       .finally(() => { if (!cancelled) setLoaded(true); });
@@ -42,15 +38,20 @@ function Detail() {
   }, [id]);
   if (!p) return <main className="px-6 pb-28 pt-44 text-center"><h1 className="display-lg">{loaded ? "Property not found" : "Loading property…"}</h1>{loaded && <Link href="/properties" className="mt-8 inline-block text-lg text-primary">Back to all properties</Link>}</main>;
   const d = propertyDetails(p);
+  return <PropertyDetail p={p} related={related} />;
+}
+
+function PropertyDetail({ p, related }: { p: Property; related: Property[] }) {
+  const d = propertyDetails(p);
   const [active, setActive] = useState(0);
+  const countedSlug = useRef("");
   useReveal([p.id]);
   useEffect(() => {
-    const key = `najm:viewed:${p.id}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-    } catch {}
-    void fetch("/api/listing-views", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertySlug: p.id }), keepalive: true }).catch(() => {});
+    if (countedSlug.current === p.id) return;
+    countedSlug.current = p.id;
+    void fetch(`/api/listing-views?propertySlug=${encodeURIComponent(p.id)}`, { cache: "no-store" })
+      .then((response) => { if (!response.ok && countedSlug.current === p.id) countedSlug.current = ""; })
+      .catch(() => { if (countedSlug.current === p.id) countedSlug.current = ""; });
   }, [p.id]);
   useLiquidGlass(".lg-detail", { frost: 1.5, refraction: 0.006, bevelDepth: 0.06, bevelWidth: 0.1 });
 

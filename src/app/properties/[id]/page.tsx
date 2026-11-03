@@ -6,10 +6,44 @@ import type { Property } from "@/data/properties";
 import { ArrowLeft, ArrowRight, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
 import { PROPERTIES, formatSAR, propertyDetails } from "@/data/properties";
 import { buildBrochureHtml } from "@/lib/brochure-template";
-const advisor = '/images/t2.jpg';
 import { EnquiryForm } from "@/components/site/EnquiryForm";
 import { PropertyCard } from "@/components/site/PropertyCard";
 import { useLiquidGlass, useReveal } from "@/components/site/motion";
+
+const DEFAULT_AGENT = { name: "Lama Al-Qahtani", phone: "+966110000000" };
+
+/** WhatsApp-style avatar colour, stable per name. */
+const avatarColor = (name: string) => {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.codePointAt(0)!) % 360;
+  return `hsl(${h} 45% 42%)`;
+};
+
+/** Shows the listing agent entered in Admin → Property → "Agent & SEO"; falls back to the default advisor. */
+function AgentCard({ p }: { p: Property }) {
+  const details = (p as { details?: { agentName?: string; agentPhone?: string } }).details;
+  const name = details?.agentName?.trim() || DEFAULT_AGENT.name;
+  const phone = details?.agentPhone?.trim() || (details?.agentName?.trim() ? "" : DEFAULT_AGENT.phone);
+  const initial = ([...name][0] ?? "?").toUpperCase();
+  return (
+    <div className="mt-4 flex items-center gap-4 rounded-[2rem] bg-cream p-4">
+      <span
+        aria-hidden="true"
+        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-medium text-white"
+        style={{ backgroundColor: avatarColor(name) }}
+      >
+        {initial}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-medium">{name}</p>
+        <p className="text-sm text-muted-foreground">Listing agent</p>
+      </div>
+      {phone && (
+        <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="rounded-full bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:bg-ink">Call</a>
+      )}
+    </div>
+  );
+}
 
 function Detail() {
   const { id } = useParams<{ id: string }>();
@@ -43,6 +77,9 @@ function Detail() {
 
 function PropertyDetail({ p, related }: { p: Property; related: Property[] }) {
   const d = propertyDetails(p);
+  const inv = (p as { details?: { annualRent?: number; priceGrowth5yr?: number; serviceCharge?: number } }).details;
+  const savedRent = inv?.annualRent;
+  const annualRent = savedRent && savedRent > 0 ? savedRent : Math.round(p.price * ((p.investment?.yield ?? 0) / 100));
   const [active, setActive] = useState(0);
   const countedSlug = useRef("");
   useReveal([p.id]);
@@ -192,32 +229,34 @@ function PropertyDetail({ p, related }: { p: Property; related: Property[] }) {
               </div>
             </Block>
 
+            {p.investment && (
             <Block title="Investment" rest=" snapshot">
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {[
-                  ["Est. annual rent", formatSAR(Math.round(p.price * ((p.investment?.yield ?? 5.2) / 100)))],
-                  ["Gross yield", `${p.investment?.yield ?? 5.2}%`],
-                  ["5-yr price growth", `+${28 + (p.id.length % 9)}%`],
-                  ["Service charge", `SAR ${18 + (p.id.length % 6)}/m²/yr`],
-                ].map(([k, v]) => (
-                  <div key={k} className="rounded-[1.75rem] bg-ink p-6 text-ink-foreground">
-                    <p className="text-2xl font-medium tracking-tight">{v}</p>
-                    <p className="mt-2 text-sm opacity-70">{k}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 rounded-[2rem] bg-cream p-6">
-                <p className="text-lg font-medium">{p.district} price trend (SAR/m²)</p>
-                <div className="mt-6 flex h-40 items-end gap-3">
-                  {[0.72, 0.76, 0.81, 0.85, 0.9, 0.95, 1].map((h, i) => (
-                    <div key={i} className="flex flex-1 flex-col items-center gap-2">
-                      <div className="w-full rounded-t-xl bg-primary" style={{ height: `${h * 100}%`, opacity: 0.45 + h * 0.55 }} />
-                      <span className="text-xs text-muted-foreground">{2020 + i}</span>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  {[
+                    ["Est. annual rent", formatSAR(annualRent)],
+                    ["Gross yield", `${p.investment!.yield}%`],
+                    typeof inv?.priceGrowth5yr === "number" ? ["5-yr price growth", `${inv.priceGrowth5yr > 0 ? "+" : ""}${inv.priceGrowth5yr}%`] : null,
+                    inv?.serviceCharge && inv.serviceCharge > 0 ? ["Service charge", `${formatSAR(inv.serviceCharge)}/yr`] : null,
+                  ].filter((c): c is string[] => c !== null).map(([k, v]) => (
+                    <div key={k} className="rounded-[1.75rem] bg-ink p-6 text-ink-foreground">
+                      <p className="text-2xl font-medium tracking-tight">{v}</p>
+                      <p className="mt-2 text-sm opacity-70">{k}</p>
                     </div>
                   ))}
                 </div>
-              </div>
-            </Block>
+                <div className="mt-4 rounded-[2rem] bg-cream p-6">
+                  <p className="text-lg font-medium">{p.district} price trend (SAR/m²)</p>
+                  <div className="mt-6 flex h-40 items-end gap-3">
+                    {[0.72, 0.76, 0.81, 0.85, 0.9, 0.95, 1].map((h, i) => (
+                      <div key={i} className="flex flex-1 flex-col items-center gap-2">
+                        <div className="w-full rounded-t-xl bg-primary" style={{ height: `${h * 100}%`, opacity: 0.45 + h * 0.55 }} />
+                        <span className="text-xs text-muted-foreground">{2020 + i}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Block>
+            )}
 
             <Block title="Documents" rest=" & compliance">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -299,11 +338,7 @@ function PropertyDetail({ p, related }: { p: Property; related: Property[] }) {
                 <EnquiryForm cta="Request viewing" defaultMessage={`I'm interested in ${p.title}.`} propertyId={p.id} propertyTitle={p.title} />
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-4 rounded-[2rem] bg-cream p-4">
-              <img src={advisor} alt="Lama Al-Qahtani" className="h-16 w-16 rounded-full object-cover" />
-              <div className="flex-1"><p className="font-medium">Lama Al-Qahtani</p><p className="text-sm text-muted-foreground">Your private advisor</p></div>
-              <a href="tel:+966110000000" className="rounded-full bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:bg-ink">Call</a>
-            </div>
+            <AgentCard p={p} />
           </aside>
         </div>
 

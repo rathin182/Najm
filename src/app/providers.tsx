@@ -2,7 +2,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { AdminProvider } from "@/lib/admin-store";
-import { Footer, Nav, SmoothScroll } from "@/components/site/Layout";
+import { Footer, Nav, SmoothScroll, SubscribeSection } from "@/components/site/Layout";
 import { useLiquidGlass } from "@/components/site/motion";
 import { Toaster } from "@/components/ui/sonner";
 import { PageTransition } from "@/components/site/PageTransition";
@@ -24,5 +24,22 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     document.head.appendChild(link);
     return () => link.remove();
   }, [path]);
-  return <SessionProvider><AdminProvider>{isAdmin ? children : <><PublicEffects />{children}<Footer /></>}<Toaster position="bottom-center" /><PageTransition /></AdminProvider></SessionProvider>;
+  return (
+    <SessionProvider>
+      <AdminProvider>
+        {isAdmin ? (
+          children
+        ) : (
+          <>
+            <PublicEffects />
+            {children}
+            <SubscribeSection />
+            <Footer />
+          </>
+        )}
+        <Toaster position="bottom-center" />
+        <PageTransition />
+      </AdminProvider>
+    </SessionProvider>
+  );
 }

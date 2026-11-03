@@ -11,9 +11,13 @@ const propertySchema = z.object({
   short: z.string().max(500), description: z.string().max(20000), images: z.array(z.string().url().or(z.string().startsWith("/"))).min(1).max(50),
   featured: z.boolean().optional(), investment: z.object({ yield: z.number().nonnegative(), label: z.string().max(120) }).optional(), status: z.enum(["Ready", "Off-plan"]), year: z.number().int().min(1800).max(2200),
   amenities: z.array(z.string().max(100)).max(100), views: z.number().int().nonnegative().optional(), published: z.boolean(), details: z.object({
-    plot: z.number().nonnegative(), floors: z.string().max(100), parking: z.number().nonnegative(), furnishing: z.string().max(80), facing: z.string().max(80), developer: z.string().max(200), deed: z.string().max(200), lat: z.number(), lng: z.number(), serviceCharge: z.number().nonnegative(), handover: z.string().max(50), video: z.string().max(2000), rooms: z.array(pair), nearby: z.array(pair), plan: z.array(pair), features: z.array(z.string().max(100)), agentName: z.string().max(200), agentPhone: z.string().max(80), seoTitle: z.string().max(200), seoDescription: z.string().max(500),
+    plot: z.number().nonnegative(), floors: z.string().max(100), parking: z.number().nonnegative(), furnishing: z.string().max(80), facing: z.string().max(80), developer: z.string().max(200), deed: z.string().max(200), lat: z.number(), lng: z.number(), serviceCharge: z.number().nonnegative(), handover: z.string().max(50), video: z.string().max(2000), rooms: z.array(pair), nearby: z.array(pair), plan: z.array(pair), features: z.array(z.string().max(100)), agentName: z.string().max(200), agentPhone: z.string().max(80), seoTitle: z.string().max(200), seoDescription: z.string().max(500), annualRent: z.number().nonnegative().optional(), priceGrowth5yr: z.number().min(-100).max(1000).optional(),
   }).optional(),
 }).superRefine((property, context) => {
+  if (property.investment) {
+    if (!(property.investment.yield > 0)) context.addIssue({ code: "custom", path: ["investment", "yield"], message: "Gross yield is required for investment listings." });
+    if (!((property.details?.annualRent ?? 0) > 0)) context.addIssue({ code: "custom", path: ["details", "annualRent"], message: "Estimated annual rent is required for investment listings." });
+  }
   for (const image of property.images) {
     if (image.startsWith("/") && !image.startsWith("/properties/uploads/")) context.addIssue({ code: "custom", path: ["images"], message: "Property photos must use the property uploads directory." });
   }

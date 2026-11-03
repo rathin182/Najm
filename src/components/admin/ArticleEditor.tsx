@@ -81,7 +81,14 @@ export function ArticleEditor({ id }: { id?: string }) {
         }
         return response.json();
       })
-      .then((article: ArticleDTO) => {
+      .then((data: { article?: ArticleDTO }) => {
+        // The API wraps the article: { article: {...} }
+        const article = data.article;
+
+        if (!article) {
+          throw new Error("Invalid article response.");
+        }
+
         setForm({
           title: article.title,
           excerpt: article.excerpt ?? "",
@@ -217,6 +224,7 @@ export function ArticleEditor({ id }: { id?: string }) {
   }
 
   const live = form.status === "PUBLISHED";
+  const usingCustomCategory = form.customCategory.trim().length > 0;
 
   return (
     <div>
@@ -306,9 +314,17 @@ export function ArticleEditor({ id }: { id?: string }) {
           <Panel className="grid gap-4">
             <h2 className="text-xl font-medium">Details</h2>
 
-            <Field label="Predefined category">
+            <Field
+              label="Predefined category"
+              hint={
+                usingCustomCategory
+                  ? "Disabled while a custom category is entered."
+                  : undefined
+              }
+            >
               <select
-                className="field"
+                className="field disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={usingCustomCategory}
                 value={form.category}
                 onChange={(event) => {
                   set("category", event.target.value);
@@ -330,13 +346,12 @@ export function ArticleEditor({ id }: { id?: string }) {
                 value={form.customCategory}
                 onChange={(event) => {
                   set("customCategory", event.target.value);
-                  set("category", "");
+                  if (event.target.value.trim()) set("category", "");
                 }}
                 placeholder="e.g. Property Technology"
                 maxLength={80}
               />
             </Field>
-
             <Field
               label="Summary"
               hint={`${form.excerpt.length}/500 — shown on the Knowledge Hub card.`}

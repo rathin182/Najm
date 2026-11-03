@@ -472,3 +472,10 @@ model Article {
   @@index([category])
   @@index([createdAt])
 }
+model Subscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

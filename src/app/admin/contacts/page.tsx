@@ -1,14 +1,24 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronDown, Download, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtDate, useAdmin } from "@/lib/admin-store";
 import { CONTACT_LABEL, CONTACT_TYPES, type ApiContact, type ContactType } from "@/lib/contacts-client";
+import { COUNTRIES, DEFAULT_COUNTRY, flagEmoji, joinPhone, splitPhone } from "@/lib/country-codes";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
 
-type Draft = { id?: string; name: string; email: string; phone: string; type: ContactType; city: string; notes: string };
-const blank = (): Draft => ({ name: "", email: "", phone: "", type: "BUYER", city: "Riyadh", notes: "" });
+type Draft = {
+  id?: string;
+  name: string;
+  email: string;
+  phoneCountry: string;
+  phoneNumber: string;
+  type: ContactType;
+  city: string;
+  notes: string;
+};
+const blank = (): Draft => ({ name: "", email: "", phoneCountry: DEFAULT_COUNTRY, phoneNumber: "", type: "BUYER", city: "Riyadh", notes: "" });
 
 function Contacts() {
   const { can } = useAdmin();
@@ -44,9 +54,14 @@ function Contacts() {
   );
 
   const exportCsv = () => {
-  const qs = type ? `?type=${type}` : "";
-  window.location.href = `/api/admin/contacts/export${qs}`;
-};
+    const qs = type ? `?type=${type}` : "";
+    window.location.href = `/api/admin/contacts/export${qs}`;
+  };
+
+  const openEdit = (c: ApiContact) => {
+    const { phoneCountry, phoneNumber } = splitPhone(c.phone ?? "");
+    setEdit({ id: c.id, name: c.name, email: c.email, phoneCountry, phoneNumber, type: c.type, city: c.city, notes: c.notes });
+  };
 
   async function save(draft: Draft) {
     if (!draft.name.trim() || !draft.email.includes("@")) {
@@ -58,7 +73,14 @@ function Contacts() {
       const res = await fetch(draft.id ? `/api/admin/contacts/${draft.id}` : "/api/admin/contacts", {
         method: draft.id ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: draft.name, email: draft.email, phone: draft.phone, type: draft.type, city: draft.city, notes: draft.notes }),
+        body: JSON.stringify({
+          name: draft.name,
+          email: draft.email,
+          phone: joinPhone(draft.phoneCountry, draft.phoneNumber.replace(/^0(?!0)/, "")),
+          type: draft.type,
+          city: draft.city,
+          notes: draft.notes,
+        }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error ?? "Could not save contact.");
@@ -115,7 +137,7 @@ function Contacts() {
                 <td className="p-4">{c.city}</td>
                 <td className="p-4 text-sm text-muted-foreground">{fmtDate(c.createdAt)}</td>
                 <td className="rounded-r-2xl p-4 text-right">
-                  {can.edit && <button aria-label="Edit" onClick={() => setEdit({ id: c.id, name: c.name, email: c.email, phone: c.phone ?? "", type: c.type, city: c.city, notes: c.notes })} className="rounded-full p-2 hover:bg-cream"><Pencil className="h-4 w-4" /></button>}
+                  {can.edit && <button aria-label="Edit" onClick={() => openEdit(c)} className="rounded-full p-2 hover:bg-cream"><Pencil className="h-4 w-4" /></button>}
                   {can.delete && <button aria-label="Delete" onClick={() => void remove(c)} className="rounded-full p-2 text-destructive hover:bg-cream"><Trash2 className="h-4 w-4" /></button>}
                 </td>
               </tr>
@@ -137,9 +159,37 @@ function Contacts() {
           <DialogHeader><DialogTitle className="text-2xl font-medium">{edit?.id ? "Edit contact" : "New contact"}</DialogTitle></DialogHeader>
           {edit && (
             <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void save(edit); }}>
-              {(["name", "email", "phone", "city"] as const).map((k) => (
+              {(["name", "email"] as const).map((k) => (
                 <input key={k} className="field" placeholder={k[0]!.toUpperCase() + k.slice(1)} value={edit[k]} onChange={(e) => setEdit({ ...edit, [k]: e.target.value })} />
               ))}
+              <div className="grid grid-cols-[minmax(0,9rem)_1fr] gap-2">
+                <div className="relative">
+                  <select
+                    aria-label="Country code"
+                    className="field truncate !pr-10"
+                    value={edit.phoneCountry}
+                    onChange={(e) => setEdit({ ...edit, phoneCountry: e.target.value })}
+                  >
+                    {edit.phoneCountry === "" && <option value="">No code</option>}
+                    {COUNTRIES.map((c) => (
+                      <option key={c.iso} value={c.iso}>
+                        {flagEmoji(c.iso)} {c.dial} {c.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  aria-label="Phone number"
+                  className="field"
+                  placeholder="Phone number"
+                  value={edit.phoneNumber}
+                  onChange={(e) => setEdit({ ...edit, phoneNumber: e.target.value.replace(/[^\d\s\-()+]/g, "") })}
+                />
+              </div>
+              <input className="field" placeholder="City" value={edit.city} onChange={(e) => setEdit({ ...edit, city: e.target.value })} />
               <select className="field" value={edit.type} onChange={(e) => setEdit({ ...edit, type: e.target.value as ContactType })}>
                 {CONTACT_TYPES.map((t) => <option key={t} value={t}>{CONTACT_LABEL[t]}</option>)}
               </select>

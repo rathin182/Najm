@@ -2,36 +2,90 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
-import type { ArticleDTO } from "@/lib/articles";
+import type { ArticleListDTO } from "@/lib/articles";
+
+const PAGE_SIZE = 10;
 
 function BlogAdmin() {
-  const [items, setItems] = useState<ArticleDTO[] | null>(null);
+  const [items, setItems] = useState<ArticleListDTO[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/articles", { cache: "no-store" })
-      .then((r) =>
-        r.ok
-          ? r.json()
-          : Promise.reject(new Error("Could not load articles."))
-      )
-      .then((data) => {
-        if (!Array.isArray(data.articles)) {
-          throw new Error("Invalid articles API response.");
-        }
+  const loadingRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-        setItems(data.articles);
-      })
-      .catch((e) => {
-        toast.error(
-          e instanceof Error ? e.message : "Could not load articles."
-        );
-        setItems([]);
+  const loadPage = useCallback(async (cursor: string | null) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    setLoadingMore(true);
+    setFailed(false);
+
+    try {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+      if (cursor) params.set("cursor", cursor);
+
+      const response = await fetch(`/api/admin/articles?${params}`, {
+        cache: "no-store",
       });
+
+      if (!response.ok) {
+        throw new Error("Could not load articles.");
+      }
+
+      const data = await response.json();
+
+      if (!Array.isArray(data.articles)) {
+        throw new Error("Invalid articles API response.");
+      }
+
+      setItems((prev) => {
+        const existing = prev ?? [];
+        const seen = new Set(existing.map((a) => a.id));
+        return [
+          ...existing,
+          ...(data.articles as ArticleListDTO[]).filter(
+            (a) => !seen.has(a.id)
+          ),
+        ];
+      });
+      setNextCursor(data.nextCursor ?? null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not load articles.");
+      setFailed(true);
+      setItems((prev) => prev ?? []);
+    } finally {
+      loadingRef.current = false;
+      setLoadingMore(false);
+    }
   }, []);
+
+  // First page
+  useEffect(() => {
+    void loadPage(null);
+  }, [loadPage]);
+
+  // Load the next page when the sentinel scrolls near the viewport
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !nextCursor || failed) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadPage(nextCursor);
+      },
+      { rootMargin: "300px" }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+    // `items` is a dependency so the observer is recreated after each page;
+    // if the sentinel is still visible (short page), it fires again.
+  }, [nextCursor, failed, items, loadPage]);
 
   return (
     <div>
@@ -53,9 +107,19 @@ function BlogAdmin() {
         <div className="h-40 animate-pulse rounded-[1.75rem] bg-background" />
       ) : items.length === 0 ? (
         <Panel>
-          <p className="text-muted-foreground">
-            No articles yet. Create your first one.
-          </p>
+          {failed ? (
+            <button
+              type="button"
+              onClick={() => void loadPage(null)}
+              className="rounded-full bg-cream px-5 py-2.5"
+            >
+              Couldn&apos;t load articles — retry
+            </button>
+          ) : (
+            <p className="text-muted-foreground">
+              No articles yet. Create your first one.
+            </p>
+          )}
         </Panel>
       ) : (
         <div className="grid gap-3">
@@ -98,6 +162,23 @@ function BlogAdmin() {
               </Panel>
             </Link>
           ))}
+
+          {/* Infinite-scroll sentinel */}
+          <div ref={sentinelRef} className="py-4 text-center text-sm text-muted-foreground">
+            {loadingMore ? (
+              <div className="h-20 animate-pulse rounded-[1.75rem] bg-background" />
+            ) : failed ? (
+              <button
+                type="button"
+                onClick={() => nextCursor && void loadPage(nextCursor)}
+                className="rounded-full bg-cream px-5 py-2.5 text-foreground"
+              >
+                Couldn&apos;t load more — retry
+              </button>
+            ) : nextCursor ? null : items.length > PAGE_SIZE ? (
+              "You've reached the end"
+            ) : null}
+          </div>
         </div>
       )}
     </div>

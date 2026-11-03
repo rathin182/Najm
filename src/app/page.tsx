@@ -7,7 +7,6 @@ const hero = '/images/hero2.jpg';
 const heroCut = '/images/hero2-cut.png';
 import { GigaProjects, WhyNajm } from "@/components/site/HomeSections";
 import { BUDGETS, CITIES, PROPERTIES, type Property, TYPES, formatSAR } from "@/data/properties";
-import { ARTICLES } from "@/data/site";
 import { PropertyCard } from "@/components/site/PropertyCard";
 import { SectionTitle } from "@/components/site/Layout";
 import { EnquiryForm } from "@/components/site/EnquiryForm";
@@ -126,11 +125,36 @@ const FAQ = [
   { q: "Are there any hidden fees?", a: "No. We share a full cost breakdown upfront, including the 5% real estate transaction tax where applicable." },
 ];
 
+type HomeArticle = {
+  id: string;
+  title: string;
+  categoryLabel: string;
+  coverImage: string | null;
+  readMinutes: number;
+};
+
 function Home() {
   useReveal();
+  const [articles, setArticles] = useState<HomeArticle[]>([]);
+  const [articlesLoaded, setArticlesLoaded] = useState(false);
   const [faq, setFaq] = useState<number | null>(0);
   const [featured, setFeatured] = useState<Property[]>([]);
   const [otherProperties, setOtherProperties] = useState<Property[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/articles", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load articles.");
+        return response.json() as Promise<HomeArticle[]>;
+      })
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows)) setArticles(rows.slice(0, 4));
+      })
+      .catch((error) => console.error("Homepage articles could not be loaded", error))
+      .finally(() => { if (!cancelled) setArticlesLoaded(true); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -263,20 +287,24 @@ function Home() {
               All articles <ArrowUpRight className="h-5 w-5" />
             </Link>
           </div>
-          <div className="mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
-            {ARTICLES.slice(0, 4).map((a) => (
-              <Link key={a.t} href="/knowledge" className="group block" data-reveal>
-                <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem]">
-                  <img src={a.img} alt={a.t} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <span className="glass absolute bottom-4 right-4 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
-                    <ArrowUpRight className="h-5 w-5" />
-                  </span>
-                </div>
-                <p className="mt-5 text-sm text-muted-foreground">{a.c} · {a.m} min read</p>
-                <p className="mt-2 text-xl font-medium leading-snug tracking-tight">{a.t}</p>
-              </Link>
-            ))}
-          </div>
+          {articlesLoaded && articles.length === 0 ? (
+            <p className="mt-16 text-lg text-muted-foreground">New articles are coming soon.</p>
+          ) : (
+            <div className="mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
+              {articles.map((a) => (
+                <Link key={a.id} href={`/knowledge/${a.id}`} className="group block" data-reveal>
+                  <div className="relative aspect-[4/5] overflow-hidden rounded-[1.5rem] bg-cream">
+                    <img src={a.coverImage || "/images/p1.jpg"} alt={a.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <span className="glass absolute bottom-4 right-4 flex h-11 w-11 translate-y-2 items-center justify-center rounded-full opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+                      <ArrowUpRight className="h-5 w-5" />
+                    </span>
+                  </div>
+                  <p className="mt-5 text-sm text-muted-foreground">{a.categoryLabel} · {a.readMinutes} min read</p>
+                  <p className="mt-2 text-xl font-medium leading-snug tracking-tight">{a.title}</p>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

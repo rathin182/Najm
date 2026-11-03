@@ -2,10 +2,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home, ImagePlus, MapPin, Maximize, Plus, Star, X } from "lucide-react";
+import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home, ImagePlus, MapPin, Maximize, Plus, Star, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { CITIES, formatSAR, propertyDetails, type Property } from "@/data/properties";
+import { COUNTRIES, DEFAULT_COUNTRY, flagEmoji, joinPhone, splitPhone } from "@/lib/country-codes";
 import { newId, useAdmin, type AdminProperty, type Pair, type PropertyExtra } from "@/lib/admin-store";
 
 export function blankProperty(): AdminProperty {
@@ -16,19 +17,29 @@ export function blankProperty(): AdminProperty {
 }
 
 function extraFor(p: AdminProperty): PropertyExtra {
-  if (p.details) return p.details;
   const d = propertyDetails(p);
   const empty = !p.title;
-  return {
+  const base: PropertyExtra = {
     plot: empty ? 0 : d.plot, floors: empty ? "" : d.floors, parking: empty ? 0 : d.parking, furnishing: empty ? "Unfurnished" : d.furnishing,
     facing: empty ? "North" : d.facing, developer: empty ? "" : d.developer, deed: empty ? "" : d.deed, lat: d.lat, lng: d.lng,
     serviceCharge: 0, handover: "", video: "",
     rooms: (empty ? [["", ""]] : d.rooms) as Pair[], nearby: (empty ? [["", ""]] : d.nearby) as Pair[], plan: d.plan as Pair[],
     features: [], agentName: "", agentPhone: "", seoTitle: "", seoDescription: "",
   };
+  if (!p.details) return base;
+  // Saved listings can miss fields (older records, null values). Fill every gap from the defaults
+  // so the editor never reads `undefined.map(...)` / `undefined.startsWith(...)` and crashes.
+  const saved = Object.fromEntries(Object.entries(p.details).filter(([, v]) => v !== null && v !== undefined)) as Partial<PropertyExtra>;
+  const merged = { ...base, ...saved } as PropertyExtra;
+  for (const k of ["rooms", "nearby", "plan", "features"] as const) {
+    if (!Array.isArray(merged[k])) (merged as Record<string, unknown>)[k] = base[k];
+  }
+  if (typeof merged.video !== "string") merged.video = "";
+  if (typeof merged.handover !== "string") merged.handover = "";
+  return merged;
 }
 
-const SECTIONS = ["Photos", "Basics", "Price & size", "Description", "Specifications", "Rooms", "Amenities", "Payment plan", "Location", "Agent & SEO", "Visibility"] as const;
+const SECTIONS = ["Photos", "Basics", "Price & size", "Description", "Specifications", "Rooms", "Amenities", "Payment plan", "Location", "Agent & SEO", "Investment", "Visibility"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
 const CATEGORY_TYPES = {
   Commercial: ["Office", "Shop", "Showroom", "Warehouse", "Industrial Building", "Business Center", "Commercial Land", "Restaurant / Cafe", "Co-working Space"],
@@ -44,7 +55,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const [category, setCategory] = useState<keyof typeof CATEGORY_TYPES>(p.type === "Commercial" ? "Commercial" : "Residential");
   const [x, setX] = useState<PropertyExtra>(() => extraFor(initial));
   const [busy, setBusy] = useState(false);
-  const [bathrooms, setBathrooms] = useState<Pair[]>(() => (initial.details as (PropertyExtra & { bathrooms?: Pair[] }) | undefined)?.bathrooms ?? Array.from({ length: initial.baths || 0 }, () => ["Bathroom", ""] as Pair));
+  const [bathrooms, setBathrooms] = useState<Pair[]>(() => (Array.isArray((initial.details as { bathrooms?: Pair[] } | undefined)?.bathrooms) ? (initial.details as { bathrooms: Pair[] }).bathrooms : null) ?? Array.from({ length: initial.baths || 0 }, () => ["Bathroom", ""] as Pair));
   useEffect(() => {
     if (properties.some((property) => property.id === initial.id) || !initial.title) return;
     let cancelled = false;
@@ -53,7 +64,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
       return response.json() as Promise<AdminProperty[]>;
     }).then((listings) => {
       const listing = listings.find((item) => item.id === initial.id);
-      if (!cancelled && listing) { setP(listing); setX(extraFor(listing)); setBathrooms((listing.details as (PropertyExtra & { bathrooms?: Pair[] }) | undefined)?.bathrooms ?? []); setLoadedFromApi(true); }
+      if (!cancelled && listing) { setP(listing); setX(extraFor(listing)); setBathrooms(Array.isArray((listing.details as { bathrooms?: Pair[] } | undefined)?.bathrooms) ? (listing.details as { bathrooms: Pair[] }).bathrooms : []); setLoadedFromApi(true); }
     }).catch(() => toast.error("Could not load the saved property."));
     return () => { cancelled = true; };
   }, [initial.id, initial.title, properties]);
@@ -61,12 +72,12 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const setE = <K extends keyof PropertyExtra>(k: K, v: PropertyExtra[K]) => setX((c) => ({ ...c, [k]: v }));
 
   const save = async () => {
-    const missing = [!p.title.trim() && "title", !p.district.trim() && "district", p.price <= 0 && "price", p.area <= 0 && "area", p.images.length === 0 && "a photo"].filter(Boolean);
+    const missing = [!p.title.trim() && "title", !p.district.trim() && "district", p.price <= 0 && "price", p.area <= 0 && "area", p.images.length === 0 && "a photo", p.investment && !((p.investment.yield ?? 0) > 0) && "gross yield (investment)", p.investment && !((x.annualRent ?? 0) > 0) && "estimated annual rent (investment)"].filter(Boolean);
     if (missing.length) { toast.error(`Please add ${missing.join(", ")}`); return; }
     const clean = (l: Pair[]) => l.filter(([a, b]) => a.trim() || b.trim());
     setBusy(true);
     try {
-      const property = { ...p, description: p.description || p.short, details: { ...x, rooms: clean(x.rooms), nearby: clean(x.nearby), plan: clean(x.plan), bathrooms: clean(bathrooms) } };
+      const property = { ...p, description: p.description || p.short, details: { ...x, annualRent: p.investment ? x.annualRent : undefined, priceGrowth5yr: p.investment ? x.priceGrowth5yr : undefined, rooms: clean(x.rooms), nearby: clean(x.nearby), plan: clean(x.plan), bathrooms: clean(bathrooms) } };
       const response = await fetch("/api/admin/listings", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(property) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error ?? "Could not save property.");
@@ -180,7 +191,6 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
             <F label="Plot size (m²)"><input className="field" type="number" min={0} value={x.plot || ""} onChange={(e) => setE("plot", Number(e.target.value))} /></F>
             <F label="Bedrooms"><input className="field" type="number" min={0} value={p.beds} onChange={(e) => set("beds", Number(e.target.value))} /></F>
             <F label="Bathrooms"><input className="field" type="number" min={0} value={p.baths} onChange={(e) => set("baths", Number(e.target.value))} /></F>
-            <F label="Rental yield % (makes it an Investment Vault listing)"><input className="field" type="number" step="0.1" min={0} value={p.investment?.yield ?? ""} onChange={(e) => set("investment", e.target.value ? { yield: Number(e.target.value), label: p.investment?.label ?? "Investment ready" } : undefined)} /></F>
             <F label="Price per m²"><div className="field text-muted-foreground">{p.price && p.area ? formatSAR(Math.round(p.price / p.area)) : "Calculated automatically"}</div></F>
           </Section>
 
@@ -221,9 +231,23 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
 
           <Section title="Agent & SEO">
             <F label="Listing agent"><input className="field" value={x.agentName} onChange={(e) => setE("agentName", e.target.value)} /></F>
-            <F label="Agent phone"><input className="field" value={x.agentPhone} onChange={(e) => setE("agentPhone", e.target.value)} placeholder="+966" /></F>
+            <F label="Agent phone" wide><AgentPhone key={String(loadedFromApi)} value={x.agentPhone} onChange={(v) => setE("agentPhone", v)} /></F>
             <F label="Search title" wide><input className="field" value={x.seoTitle} onChange={(e) => setE("seoTitle", e.target.value)} placeholder={p.title || "Shown in Google results"} /></F>
             <F label="Search description" wide><textarea className="field resize-none rounded-[1.5rem]" rows={2} value={x.seoDescription} onChange={(e) => setE("seoDescription", e.target.value)} placeholder={p.short} /></F>
+          </Section>
+
+          <Section title="Investment">
+            <label className="flex items-center justify-between gap-4 rounded-2xl bg-cream p-5 sm:col-span-2">
+              <span><span className="block font-medium">Investment property</span><span className="text-sm text-muted-foreground">Lists it in the Investment Vault and shows the investment snapshot. Annual rent and gross yield become required.</span></span>
+              <Switch checked={!!p.investment} onCheckedChange={(v) => set("investment", v ? { yield: p.investment?.yield ?? 0, label: p.investment?.label ?? "Investment ready" } : undefined)} />
+            </label>
+            {p.investment && (
+              <>
+                <F label="Est. annual rent (SAR) *"><input className="field" type="number" min={0} required value={x.annualRent || ""} onChange={(e) => setE("annualRent", Number(e.target.value))} placeholder="e.g. 180000" /></F>
+                <F label="Gross yield (%) *"><input className="field" type="number" step="0.1" min={0} required value={p.investment.yield || ""} onChange={(e) => set("investment", { yield: Number(e.target.value), label: p.investment?.label ?? "Investment ready" })} placeholder="e.g. 7.2" /></F>
+                <F label="5-yr price growth (%)"><input className="field" type="number" step="0.1" value={x.priceGrowth5yr ?? ""} onChange={(e) => setE("priceGrowth5yr", e.target.value === "" ? undefined : Number(e.target.value))} placeholder="e.g. 32" /><span className="text-xs text-muted-foreground">Optional. Leave empty to hide it on the property page.</span></F>
+              </>
+            )}
           </Section>
 
           <Section title="Visibility">
@@ -303,6 +327,37 @@ function RoomsLivingSpaces({ list, onChange, bathrooms, onBathroomsChange }: { l
       <div className="mt-3 rounded-xl bg-cream p-3"><strong className="text-sm">Property room summary</strong><div className="mt-2 grid grid-cols-3 gap-2 text-center">{[[bedrooms, "Bedrooms"], [bathrooms.length, "Bathrooms"], [living, "Living areas"]].map(([n, label]) => <div key={label} className="rounded-lg bg-background p-2"><strong className="block text-sm">{n}</strong><span className="text-xs text-muted-foreground">{label}</span></div>)}</div></div>
     </section>
   </>;
+}
+
+/** Country-code dropdown + local number. Stores the combined value, e.g. "+966 5XXXXXXXX". */
+function AgentPhone({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const initial = splitPhone(value ?? "");
+  const [country, setCountry] = useState(initial.phoneCountry || DEFAULT_COUNTRY);
+  const [number, setNumber] = useState(initial.phoneNumber);
+  const update = (c: string, n: string) => {
+    setCountry(c);
+    setNumber(n);
+    onChange(joinPhone(c, n.replace(/^0(?!0)/, "")));
+  };
+  return (
+    <div className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-2">
+      <div className="relative min-w-0">
+        <select aria-label="Country code" className="field truncate !pr-10" value={country} onChange={(e) => update(e.target.value, number)}>
+          {COUNTRIES.map((c) => <option key={c.iso} value={c.iso}>{flagEmoji(c.iso)} {c.dial} {c.name}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      </div>
+      <input
+        type="tel"
+        inputMode="tel"
+        aria-label="Agent phone number"
+        className="field min-w-0"
+        value={number}
+        onChange={(e) => update(country, e.target.value.replace(/[^\d\s\-()]/g, ""))}
+        placeholder="5X XXX XXXX"
+      />
+    </div>
+  );
 }
 
 function Pairs({ list, onChange, a, b }: { list: Pair[]; onChange: (v: Pair[]) => void; a: string; b: string }) {

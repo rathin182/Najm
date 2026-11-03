@@ -190,3 +190,25 @@ html.lenis, html.lenis body { height: auto; }
 .article-body img { max-width: 100%; height: auto; border-radius: 1.25rem; }
 .article-body code { background: var(--cream); border-radius: 0.4rem; padding: 0.1em 0.4em; font-size: 0.9em; }
 .article-body p.is-editor-empty:first-child::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--muted-foreground); }
+
+/* Public article page — refinements on top of .article-body */
+.article-prose { font-size: 1.1875rem; line-height: 1.85; }
+.article-prose > * + * { margin-top: 1.3em; }
+.article-prose h2 { font-size: clamp(1.6rem, 2.4vw, 2.1rem); margin-top: 2.2em; letter-spacing: -0.02em; }
+.article-prose h3 { font-size: clamp(1.3rem, 2vw, 1.55rem); margin-top: 1.8em; }
+.article-prose a { text-decoration-thickness: 1px; transition: opacity 0.2s; }
+.article-prose a:hover { opacity: 0.7; }
+.article-prose li::marker { color: var(--primary); }
+.article-prose blockquote {
+  border-inline-start: 4px solid var(--primary);
+  background: var(--cream);
+  border-radius: 1.5rem;
+  padding: 1.5rem 1.75rem;
+  font-style: normal;
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+.article-prose img { display: block; width: 100%; border-radius: 1.75rem; margin-block: 2em; }
+.article-prose pre { background: var(--cream); border-radius: 1rem; padding: 1rem 1.25rem; overflow-x: auto; font-size: 0.95rem; }
+.article-prose pre code { background: none; padding: 0; }

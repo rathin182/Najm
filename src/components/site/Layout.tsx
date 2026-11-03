@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ArrowUpRight, Menu, X } from "lucide-react";
 import { toast } from "sonner";
+import { DEFAULT_CONTACT_SETTINGS, type ContactOffice } from "@/lib/contact-settings";
 
 export function SmoothScroll() {
   useEffect(() => {
@@ -80,16 +81,120 @@ export function Nav() {
   );
 }
 
+type FooterData = {
+  phone: string;
+  email: string;
+  office: ContactOffice | null;
+  cities: string[];
+};
+
+const FOOTER_FALLBACK: FooterData = {
+  phone: DEFAULT_CONTACT_SETTINGS.phone,
+  email: DEFAULT_CONTACT_SETTINGS.email,
+  office: DEFAULT_CONTACT_SETTINGS.offices[0] ?? null,
+  cities: ["Riyadh", "Jeddah", "Dammam", "AlUla"],
+};
+
+// Stays null until loaded so stale defaults never flash.
+function useFooterData() {
+  const [data, setData] = useState<FooterData | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/site-footer", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: FooterData) => active && setData(d))
+      .catch(() => active && setData(FOOTER_FALLBACK));
+    return () => {
+      active = false;
+    };
+  }, []);
+  return data;
+}
+
+export function SubscribeSection() {
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Could not subscribe. Please try again.");
+      setEmail("");
+      toast.success("Subscribed — welcome to Najm.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not subscribe. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="px-3 pb-3 pt-24" aria-labelledby="subscribe-heading">
+      <div className="grid gap-8 rounded-[2rem] bg-cream px-6 py-12 md:grid-cols-2 md:items-center md:px-12 md:py-16">
+        <div>
+          <h2 id="subscribe-heading" className="display-lg">
+            Get private listings <span className="fancy">first</span>
+          </h2>
+          <p className="mt-4 max-w-md text-lg text-muted-foreground">
+            New private listings and market insights, straight to your inbox.
+          </p>
+        </div>
+
+        <form onSubmit={onSubmit} className="flex w-full max-w-xl items-center gap-2 rounded-full bg-background p-1.5 md:justify-self-end">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Your email address"
+            aria-label="Email address"
+            maxLength={254}
+            className="min-w-0 flex-1 bg-transparent px-4 text-base outline-none placeholder:text-muted-foreground"
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-full bg-primary px-6 py-3 text-sm text-primary-foreground transition-colors hover:bg-ink disabled:opacity-60"
+          >
+            {busy ? "Subscribing…" : "Subscribe"}
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
 export function Footer() {
-  const cols: { title: string; links: { label: string; href?: string; city?: string }[] }[] = [
-      { title: "Explore", links: [
-      { label: "Home", href: "/" }, { label: "Properties", href: "/properties" }, { label: "Investment Vault", href: "/#vault" },
-      { label: "Giga Projects", href: "/#projects" }, { label: "Knowledge Hub", href: "/knowledge" } ] },
-    { title: "Company", links: [{ label: "About us", href: "/about" }, { label: "Contact", href: "/contact" }, { label: "Careers", href: "/about" }, { label: "Press", href: "/about" }] },
-    { title: "Cities", links: ["Riyadh", "Jeddah", "Dammam", "AlUla"].map((c) => ({ label: c, city: c })) },
+  const data = useFooterData();
+
+  const explore = [
+    { label: "Home", href: "/" },
+    { label: "Properties", href: "/properties" },
+    { label: "Investment Vault", href: "/#vault" },
+    { label: "Giga Projects", href: "/#projects" },
+    { label: "Knowledge Hub", href: "/knowledge" },
   ];
+  const company = [
+    { label: "About us", href: "/about" },
+    { label: "Contact", href: "/contact" },
+  ];
+
   const linkCls = "group inline-flex items-center gap-2 text-ink-foreground/80 transition-colors hover:text-ink-foreground";
   const dot = <span className="h-1.5 w-0 rounded-full bg-primary transition-all duration-300 group-hover:w-3" />;
+
+  const officeCity = data?.office?.city.replace(/\s*\(.*?\)\s*/g, " ").trim();
+  const officeLine = data?.office
+    ? [data.office.address, officeCity].filter(Boolean).join(", ")
+    : "";
+
   return (
     <footer className="px-3 pb-3">
       <div className="overflow-hidden rounded-[2rem] bg-ink text-ink-foreground">
@@ -110,34 +215,39 @@ export function Footer() {
             <div>
               <Link href="/" className="text-3xl font-semibold tracking-tight">Najm<span className="fancy !text-primary"> Estate</span></Link>
               <p className="mt-4 max-w-sm text-ink-foreground/60">Curated residences and investment opportunities across the Kingdom.</p>
-              <form
-                className="mt-8 flex max-w-md items-center gap-2 rounded-full bg-ink-foreground/10 p-1.5"
-                onSubmit={(e) => { e.preventDefault(); e.currentTarget.reset(); toast.success("Subscribed — welcome to Najm."); }}
-              >
-                <input type="email" required placeholder="Email for private listings" className="min-w-0 flex-1 bg-transparent px-4 text-sm outline-none placeholder:text-ink-foreground/50" />
-                <button className="rounded-full bg-primary px-5 py-2.5 text-sm text-primary-foreground transition-colors hover:bg-ink-foreground hover:text-ink">Subscribe</button>
-              </form>
-              <div className="mt-8 grid max-w-md grid-cols-2 gap-4 text-sm">
-                <a href="tel:+966110000000" className="rounded-2xl bg-ink-foreground/5 p-4 transition-colors hover:bg-ink-foreground/10"><span className="block text-ink-foreground/50">Call</span>+966 11 000 0000</a>
-                <a href="mailto:hello@najmestate.sa" className="rounded-2xl bg-ink-foreground/5 p-4 transition-colors hover:bg-ink-foreground/10"><span className="block text-ink-foreground/50">Email</span>hello@najmestate.sa</a>
-              </div>
+              {data && (data.phone || data.email) && (
+                <div className="mt-8 grid max-w-md grid-cols-2 gap-4 text-sm">
+                  {data.phone && (
+                    <a href={`tel:${data.phone.replace(/[^\d+]/g, "")}`} className="rounded-2xl bg-ink-foreground/5 p-4 transition-colors hover:bg-ink-foreground/10"><span className="block text-ink-foreground/50">Call</span>{data.phone}</a>
+                  )}
+                  {data.email && (
+                    <a href={`mailto:${data.email}`} className="min-w-0 break-words rounded-2xl bg-ink-foreground/5 p-4 transition-colors hover:bg-ink-foreground/10"><span className="block text-ink-foreground/50">Email</span>{data.email}</a>
+                  )}
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-10 text-sm sm:grid-cols-3">
-              {cols.map((c) => (
-                <div key={c.title} className="flex flex-col gap-3.5">
-                  <p className="mb-1 text-ink-foreground/45">{c.title}</p>
-                  {c.links.map((l) => l.city ? (
-                    <Link key={l.label} href={`/properties?city=${encodeURIComponent(l.city)}`} className={linkCls}>{dot}{l.label}</Link>
-                  ) : l.href ? (
-                    <Link key={l.label} href={l.href} className={linkCls}>{dot}{l.label}</Link>
-                  ) : null)}
+              <div className="flex flex-col gap-3.5">
+                <p className="mb-1 text-ink-foreground/45">Explore</p>
+                {explore.map((l) => <Link key={l.label} href={l.href} className={linkCls}>{dot}{l.label}</Link>)}
+              </div>
+              <div className="flex flex-col gap-3.5">
+                <p className="mb-1 text-ink-foreground/45">Company</p>
+                {company.map((l) => <Link key={l.label} href={l.href} className={linkCls}>{dot}{l.label}</Link>)}
+              </div>
+              {data && data.cities.length > 0 && (
+                <div className="flex flex-col gap-3.5">
+                  <p className="mb-1 text-ink-foreground/45">Cities</p>
+                  {data.cities.map((c) => (
+                    <Link key={c} href={`/properties?city=${encodeURIComponent(c)}`} className={linkCls}>{dot}{c}</Link>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
           <div className="mt-16 flex flex-wrap items-center justify-between gap-4 bg-ink py-6 text-sm text-ink-foreground/50" style={{ boxShadow: "0 -1px 0 0 color-mix(in oklab, var(--ink-foreground) 10%, transparent)" }}>
-            <p>© 2026 Najm Estate · Licensed by REGA · King Fahd Rd, Riyadh</p>
+            <p>© {new Date().getFullYear()} Najm Estate · Licensed by REGA{officeLine ? ` · ${officeLine}` : ""}</p>
             <div className="flex gap-2">
               {["Instagram", "LinkedIn", "X"].map((s) => (
                 <a key={s} href="#" className="rounded-full bg-ink-foreground/5 px-4 py-2 transition-colors hover:bg-primary hover:text-primary-foreground">{s}</a>
@@ -153,7 +263,6 @@ export function Footer() {
     </footer>
   );
 }
-
 export function SectionTitle({ word, rest, eyebrow, className = "" }: { word: string; rest: string; eyebrow?: string; className?: string }) {
   return (
     <div className={className} data-reveal>

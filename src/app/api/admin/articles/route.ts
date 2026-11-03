@@ -6,21 +6,35 @@ import {
   estimateReadMinutes,
   sanitizeArticleHtml,
   toArticleDTO,
+  toArticleListDTO,
 } from "@/lib/articles";
 import { articleSchema } from "@/lib/article-validation";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const { error } = await guard(["ADMIN"]);
-if (error) return error;
+  if (error) return error;
+
   try {
-    const articles = await prisma.article.findMany({
-      orderBy: {
-        updatedAt: "desc",
-      },
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(
+      Math.max(Number(searchParams.get("limit")) || 10, 1),
+      50
+    );
+    const cursor = searchParams.get("cursor");
+
+    // Fetch one extra row to know whether another page exists.
+    const rows = await prisma.article.findMany({
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     });
 
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+
     return NextResponse.json({
-      articles: articles.map(toArticleDTO),
+      articles: page.map(toArticleListDTO),
+      nextCursor: hasMore ? page[page.length - 1].id : null,
     });
   } catch (error) {
     console.error("Admin articles GET error:", error);

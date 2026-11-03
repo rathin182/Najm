@@ -16,6 +16,10 @@ export type PropertyExtra = {
   rooms: Pair[]; nearby: Pair[]; plan: Pair[]; features: string[];
   agentName: string; agentPhone: string; seoTitle: string; seoDescription: string;
   bathrooms?: Pair[];
+  /** Estimated annual rent in SAR — required when the listing is an investment. */
+  annualRent?: number;
+  /** 5-year price growth in % — shown in the investment snapshot when set. */
+  priceGrowth5yr?: number;
 };
 export type AdminProperty = Property & { views: number; published: boolean; details?: PropertyExtra };
 

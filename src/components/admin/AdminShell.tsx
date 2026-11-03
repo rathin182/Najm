@@ -16,6 +16,7 @@ import {
   Rocket,
   // Users,
   BookOpen,
+  Mail,
 } from "lucide-react";
 
 import {
@@ -42,6 +43,7 @@ const NAV = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Enquiries", url: "/admin/enquiries", icon: Inbox },
   { title: "Contacts", url: "/admin/contacts", icon: ContactIcon },
+  { title: "Subscribers", url: "/admin/subscribers", icon: Mail },
   { title: "Properties", url: "/admin/properties", icon: Building2 },
   { title: "Future Projects", url: "/admin/future-projects", icon: Rocket },
   { title: "About & Team", url: "/admin/about", icon: Info },

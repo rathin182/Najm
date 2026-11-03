@@ -1,17 +1,27 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ExternalLink, Plus, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ExternalLink, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAdmin } from "@/lib/admin-store";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
 import { DEFAULT_CONTACT_SETTINGS, getMapUrl, type ContactSettingsData } from "@/lib/contact-settings";
-type Form = Omit<ContactSettingsData, "mapLatitude" | "mapLongitude"> & { mapLatitude: string; mapLongitude: string };
-const toForm = (s: ContactSettingsData): Form => ({ ...s, mapLatitude: s.mapLatitude?.toString() ?? "", mapLongitude: s.mapLongitude?.toString() ?? "" });
-const toData = (f: Form): ContactSettingsData => ({
-  ...f,
-  mapLatitude: f.mapLatitude.trim() === "" ? null : Number(f.mapLatitude),
-  mapLongitude: f.mapLongitude.trim() === "" ? null : Number(f.mapLongitude),
+import { COUNTRIES, flagEmoji, joinPhone, splitPhone } from "@/lib/country-codes";
+type Form = Omit<ContactSettingsData, "mapLatitude" | "mapLongitude"> & { mapLatitude: string; mapLongitude: string; phoneCountry: string; phoneNumber: string; };
+const toForm = (s: ContactSettingsData): Form => ({
+  ...s,
+  ...splitPhone(s.phone),
+  mapLatitude: s.mapLatitude?.toString() ?? "",
+  mapLongitude: s.mapLongitude?.toString() ?? "",
 });
+const toData = (f: Form): ContactSettingsData => {
+  const { phoneCountry, phoneNumber, ...rest } = f;
+  return {
+    ...rest,
+    phone: joinPhone(phoneCountry, phoneNumber),
+    mapLatitude: f.mapLatitude.trim() === "" ? null : Number(f.mapLatitude),
+    mapLongitude: f.mapLongitude.trim() === "" ? null : Number(f.mapLongitude),
+  };
+};
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="grid gap-1.5">
@@ -70,7 +80,41 @@ function ContactInfoEditor() {
         <div className="grid content-start gap-6">
           <Panel className="grid gap-4">
             <h2 className="text-xl font-medium">Contact details</h2>
-            <Field label="Call (phone)"><input className="field" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="+966 11 000 0000" /></Field>
+            <div className="grid gap-1.5">
+              <span className="text-sm font-medium">Call (phone)</span>
+              <div className="grid grid-cols-[minmax(0,13rem)_1fr] gap-2">
+                <div className="relative">
+                  <select
+                    aria-label="Country code"
+                    className="field truncate !pr-10"
+                    value={form.phoneCountry}
+                    onChange={(e) => set("phoneCountry", e.target.value)}
+                  >
+                    {form.phoneCountry === "" && <option value="">No code</option>}
+                    {COUNTRIES.map((c) => (
+                      <option key={c.iso} value={c.iso}>
+                        {flagEmoji(c.iso)} {c.name} ({c.dial})
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                </div>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  aria-label="Phone number"
+                  className="field"
+                  value={form.phoneNumber}
+                  onChange={(e) => set("phoneNumber", e.target.value.replace(/[^\d\s\-()+]/g, ""))}
+                  placeholder="11 000 0000"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {joinPhone(form.phoneCountry, form.phoneNumber)
+                  ? `Shown on the site as ${joinPhone(form.phoneCountry, form.phoneNumber)}`
+                  : "Enter the number without the country code."}
+              </span>
+            </div>
             <Field label="Email"><input type="email" className="field" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="hello@najmestate.sa" /></Field>
             <Field label="Hours"><input className="field" value={form.hours} onChange={(e) => set("hours", e.target.value)} /></Field>
           </Panel>

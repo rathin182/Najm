@@ -6,7 +6,7 @@ type ListingWithMedia = Listing & { media: ListingMedia[] };
 
 export function listingToProperty(listing: ListingWithMedia): AdminProperty {
   const details = (listing.details && typeof listing.details === "object" ? listing.details : {}) as Partial<PropertyExtra>;
-  const images = listing.media.filter((media) => media.kind === "IMAGE").map((media) => media.externalUrl ?? media.storageKey ?? "").filter(Boolean);
+  const images = listing.media.filter((media) => media.kind === "IMAGE" && media.status === "READY").map((media) => media.externalUrl ?? media.storageKey ?? "").filter(Boolean);
   const property: AdminProperty = {
     id: listing.slug,
     title: listing.title,

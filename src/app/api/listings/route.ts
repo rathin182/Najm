@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   const minYield = Number(searchParams.get("minYield"));
   const extraConditions: Prisma.ListingWhereInput[] = [];
 
-  if (city && city !== "all") where.city = city;
+  if (city && city !== "all") where.city = { equals: city, mode: "insensitive" };
   if (type && type !== "all") {
     const category = ["residential", "commercial", "land"].includes(type.toLowerCase())
       ? type.toUpperCase() as "RESIDENTIAL" | "COMMERCIAL" | "LAND"

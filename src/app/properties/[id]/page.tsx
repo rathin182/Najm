@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { Property } from "@/data/properties";
 import { ArrowLeft, ArrowRight, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
 import { PROPERTIES, formatSAR, propertyDetails } from "@/data/properties";
 import { buildBrochureHtml } from "@/lib/brochure-template";
@@ -12,8 +13,34 @@ import { useLiquidGlass, useReveal } from "@/components/site/motion";
 
 function Detail() {
   const { id } = useParams<{ id: string }>();
-  const p = PROPERTIES.find((x) => x.id === id);
-  if (!p) return <main className="px-6 pb-28 pt-44 text-center"><h1 className="display-lg">Property not found</h1><Link href="/properties" className="mt-8 inline-block text-lg text-primary">Back to all properties</Link></main>;
+  const [p, setProperty] = useState<Property | null>(() => PROPERTIES.find((x) => x.id === id) ?? null);
+  const [loaded, setLoaded] = useState(() => PROPERTIES.some((x) => x.id === id));
+  const [related, setRelated] = useState<Property[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (PROPERTIES.some((item) => item.id === id)) { setLoaded(true); return () => { cancelled = true; }; }
+    setProperty(null);
+    setLoaded(false);
+    void fetch(`/api/listings?paginated=1&page=1&pageSize=1&q=${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load this property.");
+        const data = await response.json() as { items: Property[] };
+        return data.items.find((item) => item.id === id) ?? null;
+      })
+      .then((property) => { if (!cancelled) setProperty(property); })
+      .catch(() => { if (!cancelled) setProperty(null); })
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [id]);
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/listings?paginated=1&page=1&pageSize=3", { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() as Promise<{ items: Property[] }> : { items: [] })
+      .then((data) => { if (!cancelled) setRelated(data.items); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [id]);
+  if (!p) return <main className="px-6 pb-28 pt-44 text-center"><h1 className="display-lg">{loaded ? "Property not found" : "Loading property…"}</h1>{loaded && <Link href="/properties" className="mt-8 inline-block text-lg text-primary">Back to all properties</Link>}</main>;
   const d = propertyDetails(p);
   const [active, setActive] = useState(0);
   useReveal([p.id]);
@@ -282,7 +309,7 @@ function Detail() {
         <section className="mt-28">
           <h2 className="display-lg"><span className="fancy">Similar</span> homes</h2>
           <div className="mt-14 grid gap-x-8 gap-y-16 md:grid-cols-2 lg:grid-cols-3">
-            {PROPERTIES.filter((x) => x.id !== p.id).slice(0, 3).map((x) => <PropertyCard key={x.id} p={x} />)}
+            {related.filter((x) => x.id !== p.id).slice(0, 3).map((x) => <PropertyCard key={x.id} p={x} />)}
           </div>
         </section>
       </div>

@@ -1,5 +1,5 @@
-import TeamManager from "@/components/admin/TeamManager";
+import AboutSectionManager from "@/components/admin/AboutSectionManager";
 
 export default function AboutAdminPage() {
-  return <TeamManager />;
+  return <AboutSectionManager />;
 }

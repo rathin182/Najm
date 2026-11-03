@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { TeamMember } from "@/lib/team";
 import { guard } from "@/lib/admin-guard";
 import { prisma } from "@/lib/prisma";
+import { planOrderShifts } from "@/lib/reorder";
 
 const teamSchema = z.object({
   id: z.string().min(1).max(200).optional(),
@@ -78,13 +79,25 @@ export async function POST(request: Request) {
     sortOrder: member.order,
   };
   try {
-    const record = member.id
-      ? await prisma.teamMember.upsert({
-          where: { id: member.id },
-          update: data,
-          create: { id: member.id, ...data },
-        })
-      : await prisma.teamMember.create({ data });
+    const record = await prisma.$transaction(async (tx) => {
+      const previous = member.id
+        ? await tx.teamMember.findUnique({ where: { id: member.id }, select: { sortOrder: true } })
+        : null;
+      const others = await tx.teamMember.findMany({
+        where: member.id ? { id: { not: member.id } } : {},
+        select: { id: true, sortOrder: true },
+      });
+      for (const shift of planOrderShifts(others, member.order, previous?.sortOrder ?? null)) {
+        await tx.teamMember.update({ where: { id: shift.id }, data: { sortOrder: shift.sortOrder } });
+      }
+      return member.id
+        ? tx.teamMember.upsert({
+            where: { id: member.id },
+            update: data,
+            create: { id: member.id, ...data },
+          })
+        : tx.teamMember.create({ data });
+    });
     return Response.json(toTeamMember(record));
   } catch (cause) {
     console.error("Team member save failed", cause);

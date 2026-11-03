@@ -35,7 +35,7 @@ type ApiError = {
   issues?: { fieldErrors?: Record<string, string[] | undefined>; formErrors?: string[] };
 };
 
-export default function TeamManager() {
+export default function TeamManager({ embedded = false }: { embedded?: boolean }) {
   const { can } = useAdmin();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [editing, setEditing] = useState<TeamMemberDraft | null>(null);
@@ -89,11 +89,7 @@ export default function TeamManager() {
             "Could not save team member.",
         );
       }
-      setMembers((current) =>
-        current.some((item) => item.id === result.id)
-          ? current.map((item) => (item.id === result.id ? result : item))
-          : [...current, result],
-      );
+      await load();
       setEditing(null);
       toast.success(member.id ? "Team member updated" : "Team member added");
     } catch (error) {
@@ -121,33 +117,36 @@ export default function TeamManager() {
     }
   };
 
+  const addButton = can.edit && (
+    <button
+      type="button"
+      onClick={() =>
+        setEditing(emptyMember(Math.max(0, ...members.map((member) => member.order)) + 1))
+      }
+      className="flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-primary-foreground hover:bg-ink"
+    >
+      <Plus className="h-4 w-4" />
+      Add team member
+    </button>
+  );
+
   return (
     <div>
-      <PageHeader
-        title="About"
-        sub={`${members.length} team members`}
-        action={
-          can.edit && (
-            <button
-              type="button"
-              onClick={() =>
-                setEditing(emptyMember(Math.max(0, ...members.map((member) => member.order)) + 1))
-              }
-              className="flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-primary-foreground hover:bg-ink"
-            >
-              <Plus className="h-4 w-4" />
-              Add team member
-            </button>
-          )
-        }
-      />
+      {!embedded && (
+        <PageHeader title="About" sub={`${members.length} team members`} action={addButton} />
+      )}
       <section aria-labelledby="team-admin-title">
-        <h2 id="team-admin-title" className="mb-1 text-2xl font-medium">
-          Team
-        </h2>
-        <p className="mb-5 text-sm text-muted-foreground">
-          Profiles appear on the About page and homepage. Changes are shared with site visitors.
-        </p>
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 id="team-admin-title" className="mb-1 text-2xl font-medium">
+              Team
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Profiles appear on the About page and homepage. Changes are shared with site visitors.
+            </p>
+          </div>
+          {embedded && addButton}
+        </div>
         {!ready ? (
           <Panel>Loading team…</Panel>
         ) : loadError ? (

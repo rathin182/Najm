@@ -14,7 +14,7 @@ import {
   LayoutDashboard,
   LogOut,
   Rocket,
-  Users,
+  // Users,
   BookOpen,
 } from "lucide-react";
 
@@ -44,8 +44,8 @@ const NAV = [
   { title: "Contacts", url: "/admin/contacts", icon: ContactIcon },
   { title: "Properties", url: "/admin/properties", icon: Building2 },
   { title: "Future Projects", url: "/admin/future-projects", icon: Rocket },
-  { title: "About", url: "/admin/about", icon: Info },
-  { title: "Staff", url: "/admin/staff", icon: Users },
+  { title: "About & Team", url: "/admin/about", icon: Info },
+  // { title: "Staff", url: "/admin/staff", icon: Users },
   { title: "Contact Info", url: "/admin/contact-info", icon: FileText },
   { title: "Knowledge Hub", url: "/admin/blog", icon: BookOpen },
 ] as const;

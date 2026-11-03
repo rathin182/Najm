@@ -377,6 +377,23 @@ model TeamMember {
   @@index([sortOrder, createdAt])
 }
 
+model AboutSection {
+  id                 String   @id @default(cuid())
+  type               String
+  title              String   @default("")
+  description        String   @db.Text
+  image              String?
+  imageAlt           String   @default("")
+  buttonLabel        String   @default("")
+  buttonDestination  String   @default("")
+  items              Json     @default("[]")
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([type, sortOrder])
+}
+
 enum ContactType {
   BUYER
   INVESTOR

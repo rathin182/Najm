@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { listingToProperty } from "@/lib/listing-property";
 import { Prisma } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
+import { CATEGORY_TYPES } from "@/lib/property-categories";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,8 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number(searchParams.get("page")) || 1);
   const pageSize = Math.min(30, Math.max(1, Number(searchParams.get("pageSize")) || 15));
   const where: Prisma.ListingWhereInput = isAdmin ? {} : { status: "LIVE" };
-  const city = searchParams.get("city");
+  // const city = searchParams.get("city");
+  const cityFilters = [...new Set(searchParams.getAll("city").map((value) => value.trim()).filter((value) => value && value.toLowerCase() !== "all"))];
   const type = searchParams.get("type");
   const transaction = searchParams.get("transaction");
   const readiness = searchParams.get("readiness");
@@ -36,7 +38,8 @@ export async function GET(request: Request) {
   const minYield = Number(searchParams.get("minYield"));
   const extraConditions: Prisma.ListingWhereInput[] = [];
 
-  if (city && city !== "all") where.city = { equals: city, mode: "insensitive" };
+  // if (city && city !== "all") where.city = { equals: city, mode: "insensitive" };
+  if (cityFilters.length) extraConditions.push({ OR: cityFilters.map((name) => ({ city: { equals: name, mode: "insensitive" as const } })) });
   if (type && type !== "all") {
     const category = ["residential", "commercial", "land"].includes(type.toLowerCase())
       ? type.toUpperCase() as "RESIDENTIAL" | "COMMERCIAL" | "LAND"
@@ -55,6 +58,13 @@ export async function GET(request: Request) {
   if (transaction === "commercial") where.category = "COMMERCIAL";
   if (readiness === "ready") where.isOffPlan = false;
   if (readiness === "off-plan") where.isOffPlan = true;
+  
+  const furnishingParam = searchParams.get("furnishing");
+  const furnishingFilter = furnishingParam === "furnished" ? ["Fully furnished", "Furnished"] : furnishingParam === "semi" ? ["Semi furnished", "Semi-furnished"] : null;
+  if (furnishingFilter) {
+    extraConditions.push({ OR: furnishingFilter.map((value) => ({ details: { path: ["furnishing"], equals: value } })) });
+  }
+  
   if (tier && tier !== "all") where.tier = tier;
   if (Number.isFinite(minPrice) && minPrice > 0 || Number.isFinite(maxPrice) && maxPrice > 0) {
     where.price = {
@@ -74,6 +84,25 @@ export async function GET(request: Request) {
     extraConditions.push({ OR: [
       { areaSqm: { lte: maxSize } },
       { areaSqm: null, areaSqft: { lte: Math.floor(maxSize / 0.092903) } },
+    ] });
+  }
+  const areaMinParam = Math.round(Number(searchParams.get("areaMin")));
+  const areaMaxParam = Math.round(Number(searchParams.get("areaMax")));
+  let areaMin = Number.isFinite(areaMinParam) && areaMinParam > 0 ? areaMinParam : 0;
+  let areaMax = Number.isFinite(areaMaxParam) && areaMaxParam > 0 ? areaMaxParam : 0;
+  if (areaMin && areaMax && areaMin > areaMax) [areaMin, areaMax] = [areaMax, areaMin];
+  // Cards show areaSqm, or round(areaSqft x 0.092903) when areaSqm is empty - filter on that same number.
+  if (areaMin) {
+    extraConditions.push({ OR: [{ areaSqm: { gte: areaMin } }, { areaSqm: null, areaSqft: { gte: Math.ceil((areaMin - 0.5) / 0.092903) } }] });
+  }
+  if (areaMax) {
+    extraConditions.push({ OR: [{ areaSqm: { lte: areaMax } }, { areaSqm: null, areaSqft: { lt: Math.ceil((areaMax + 0.5) / 0.092903) } }] });
+  }
+  const categoryParam = searchParams.get("category");
+  if (categoryParam === "residential" || categoryParam === "commercial") {
+    extraConditions.push({ OR: [
+      { category: categoryParam === "commercial" ? "COMMERCIAL" : "RESIDENTIAL" },
+      ...CATEGORY_TYPES[categoryParam].map((name) => ({ propertyType: { equals: name, mode: "insensitive" as const } })),
     ] });
   }
   if (Number.isFinite(minYield) && minYield > 0) where.projectedYield = { gte: String(minYield) };

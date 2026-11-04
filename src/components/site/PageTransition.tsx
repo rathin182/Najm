@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-
-/** Resolves when the first-visit loader has lifted, so page intros can wait for it. */
 let resolveIntro: () => void = () => {};
 export const introDone: Promise<void> =
   typeof window === "undefined" ? Promise.resolve() : new Promise<void>((r) => (resolveIntro = r));
 
+export const INTRO_KEY = "najm:intro-seen";
+const hasSeenIntro = () => {try {return sessionStorage.getItem(INTRO_KEY) === "1"; } catch {return false; }};
+const markIntroSeen = () => {try { sessionStorage.setItem(INTRO_KEY, "1");} catch { /* storage blocked */}};
 const LABELS: Record<string, string> = {
   "/": "Home", "/properties": "Properties", "/about": "About", "/knowledge": "Knowledge", "/contact": "Contact", "/admin": "Admin",
 };
@@ -17,11 +18,7 @@ const labelFor = (path: string) => {
   return "Najm";
 };
 const STRIPES = ["bg-background", "bg-primary", "bg-background", "bg-primary"];
-
-/** Minimal shape of a gsap timeline we keep a handle on (heartbeat animation). */
 type BeatTimeline = { kill: () => void; to: (...args: unknown[]) => BeatTimeline };
-
-/** Four stripes rise from the bottom to cover the page, then lift away upward one by one. */
 export function PageTransition() {
   const pathname = usePathname();
   const root = useRef<HTMLDivElement>(null);
@@ -33,9 +30,14 @@ export function PageTransition() {
 
   const stripes = () => Array.from(root.current?.querySelectorAll<HTMLElement>("[data-stripe]") ?? []);
   const text = () => root.current?.querySelector<HTMLElement>("[data-label]");
-
-  // Initial loader: page starts covered, counter runs, then stripes lift.
   useEffect(() => {
+    if (hasSeenIntro()) {
+      setIntro(false);
+      if (root.current) root.current.style.visibility = "hidden";
+      resolveIntro();
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       const { gsap } = await import("gsap");
@@ -52,6 +54,7 @@ export function PageTransition() {
         .to(stripes(), { scaleY: 0, transformOrigin: "50% 0%", duration: 0.8, stagger: 0.09, ease: "power4.inOut" }, "-=0.15"));
       setIntro(false);
       root.current!.style.visibility = "hidden";
+      markIntroSeen();
       resolveIntro();
     })();
     return () => { cancelled = true; resolveIntro(); };
@@ -64,7 +67,7 @@ export function PageTransition() {
   }, [pathname]);
 
   return (
-    <div ref={root} aria-hidden data-html2canvas-ignore="true" data-liquid-ignore className="pointer-events-none fixed inset-0 z-[100] grid grid-cols-4">
+    <div ref={root} aria-hidden data-page-transition data-html2canvas-ignore="true" data-liquid-ignore className="pointer-events-none fixed inset-0 z-[100] grid grid-cols-4">
       {STRIPES.map((c, i) => <div key={i} data-stripe className={`${c} h-full w-full origin-bottom`} />)}
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden text-ink">
         <div data-label className="text-center">

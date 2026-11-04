@@ -221,3 +221,5 @@ html.lenis, html.lenis body { height: auto; }
     display: none;
   }
 }
+/* Intro loader is skipped for returning visitors (class set by inline script in layout.tsx) */
+.intro-seen [data-page-transition] { display: none !important; }

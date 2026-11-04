@@ -11,5 +11,17 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body><AppProviders>{children}</AppProviders></body></html>;
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Runs before first paint: returning visitors never see the intro loader cover. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(sessionStorage.getItem("najm:intro-seen")==="1")document.documentElement.classList.add("intro-seen")}catch(e){}`,
+          }}
+        />
+      </head>
+      <body><AppProviders>{children}</AppProviders></body>
+    </html>
+  );
 }

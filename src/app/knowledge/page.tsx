@@ -71,17 +71,17 @@ function Knowledge() {
   );
 
   // Only feature the first article when there are enough others to fill
-// the grid below it; with fewer, every article uses the same card size.
-const showLead = filteredArticles.length >= 4;
-const lead = showLead ? filteredArticles[0] : undefined;
-const rest = showLead ? filteredArticles.slice(1) : filteredArticles;
+  // the grid below it; with fewer, every article uses the same card size.
+  const showLead = filteredArticles.length >= 4;
+  const lead = showLead ? filteredArticles[0] : undefined;
+  const rest = showLead ? filteredArticles.slice(1) : filteredArticles;
 
-const gridCols =
-  rest.length === 1
-    ? "max-w-md"
-    : rest.length === 2
-      ? "sm:grid-cols-2"
-      : "sm:grid-cols-2 lg:grid-cols-3";
+  const gridCols =
+    rest.length === 1
+      ? "max-w-md"
+      : rest.length === 2
+        ? "sm:grid-cols-2"
+        : "sm:grid-cols-2 lg:grid-cols-3";
 
   useReveal([cat, articles]);
 
@@ -102,11 +102,10 @@ const gridCols =
               <button
                 key={category}
                 onClick={() => setCat(category)}
-                className={`rounded-full px-5 py-2.5 transition-colors ${
-                  cat === category
+                className={`rounded-full px-5 py-2.5 transition-colors ${cat === category
                     ? "bg-primary text-primary-foreground"
                     : "bg-cream hover:bg-primary/10"
-                }`}
+                  }`}
               >
                 {category}
               </button>
@@ -171,42 +170,42 @@ const gridCols =
         )}
 
         {!loading && !error && filteredArticles.length > 0 && (
-  <div className="mt-12 grid gap-8">
-    {filteredArticles.map((article) => (
-      <Link
-        key={article.id}
-        href={`/knowledge/${article.id}`}
-        className="group grid gap-8 rounded-[2.5rem] bg-cream p-3 md:grid-cols-2"
-        data-reveal
-      >
-        <div className="aspect-[4/3] overflow-hidden rounded-[2rem]">
-          <img
-            src={article.coverImage || FALLBACK_IMG}
-            alt={article.title}
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-        </div>
+          <div className="mt-12 grid gap-8">
+            {filteredArticles.map((article) => (
+              <Link
+                key={article.id}
+                href={`/knowledge/${article.id}`}
+                className="group grid gap-8 rounded-[2.5rem] bg-cream p-3 md:grid-cols-2"
+                data-reveal
+              >
+                <div className="mx-auto w-full max-w-xs aspect-[4/3] overflow-hidden rounded-[2rem]">
+                  <img
+                    src={article.coverImage || FALLBACK_IMG}
+                    alt={article.title}
+                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
 
-        <div className="flex flex-col justify-center p-6">
-          <p className="text-muted-foreground">
-            {article.categoryLabel} · {article.readMinutes} min read
-          </p>
+                <div className="flex flex-col justify-center p-6">
+                  <p className="text-muted-foreground">
+                    {article.categoryLabel} · {article.readMinutes} min read
+                  </p>
 
-          <h2 className="display-md mt-4">{article.title}</h2>
+                  <h2 className="display-md mt-4">{article.title}</h2>
 
-          <p className="mt-4 text-lg text-muted-foreground">
-            {article.excerpt}
-          </p>
+                  <p className="mt-4 text-lg text-muted-foreground">
+                    {article.excerpt}
+                  </p>
 
-          <span className="mt-8 flex items-center gap-2 text-lg text-primary">
-            Read article
-            <ArrowUpRight className="h-5 w-5" />
-          </span>
-        </div>
-      </Link>
-    ))}
-  </div>
-)}
+                  <span className="mt-8 flex items-center gap-2 text-lg text-primary">
+                    Read article
+                    <ArrowUpRight className="h-5 w-5" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );

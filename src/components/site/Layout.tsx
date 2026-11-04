@@ -137,7 +137,7 @@ export function SubscribeSection() {
   }
 
   return (
-    <section className="px-3 pb-3 pt-24" aria-labelledby="subscribe-heading">
+    <section className="px-3 pb-10 pt-24" aria-labelledby="subscribe-heading">
       <div className="grid gap-8 rounded-[2rem] bg-cream px-6 py-12 md:grid-cols-2 md:items-center md:px-12 md:py-16">
         <div>
           <h2 id="subscribe-heading" className="display-lg">

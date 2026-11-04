@@ -3,6 +3,7 @@ import { listingToProperty } from "@/lib/listing-property";
 import { Prisma } from "@/generated/prisma/client";
 import { auth } from "@/lib/auth";
 import { CATEGORY_TYPES } from "@/lib/property-categories";
+import { CATEGORY_GROUPS } from "@/lib/home-search-options";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
   // const city = searchParams.get("city");
   const cityFilters = [...new Set(searchParams.getAll("city").map((value) => value.trim()).filter((value) => value && value.toLowerCase() !== "all"))];
   const type = searchParams.get("type");
+  const categoryFilter = searchParams.get("category");
   const transaction = searchParams.get("transaction");
   const readiness = searchParams.get("readiness");
   const tier = searchParams.get("tier");
@@ -32,11 +34,26 @@ export async function GET(request: Request) {
   const minPrice = Number(searchParams.get("minPrice"));
   const maxPrice = Number(searchParams.get("maxPrice"));
   const minBeds = Number(searchParams.get("minBeds"));
+  const studioOnly = searchParams.get("studio") === "1";
   const minBaths = Number(searchParams.get("minBaths"));
   const minSize = Number(searchParams.get("minSize"));
   const maxSize = Number(searchParams.get("maxSize"));
   const minYield = Number(searchParams.get("minYield"));
   const extraConditions: Prisma.ListingWhereInput[] = [];
+  const configuredTypes = await prisma.homeSearchOption.findMany({
+    where: { enabled: true, group: { in: [CATEGORY_GROUPS.residential, CATEGORY_GROUPS.commercial] } },
+    orderBy: { position: "asc" },
+    select: { group: true, value: true },
+  });
+  const categoryTypeMap = {
+    residential: configuredTypes.some((item) => item.group === CATEGORY_GROUPS.residential)
+      ? configuredTypes.filter((item) => item.group === CATEGORY_GROUPS.residential).map((item) => item.value)
+      : [...CATEGORY_TYPES.residential],
+    commercial: configuredTypes.some((item) => item.group === CATEGORY_GROUPS.commercial)
+      ? configuredTypes.filter((item) => item.group === CATEGORY_GROUPS.commercial).map((item) => item.value)
+      : [...CATEGORY_TYPES.commercial],
+  };
+  const typesForCategory = (category: "residential" | "commercial") => categoryTypeMap[category];
 
   // if (city && city !== "all") where.city = { equals: city, mode: "insensitive" };
   if (cityFilters.length) extraConditions.push({ OR: cityFilters.map((name) => ({ city: { equals: name, mode: "insensitive" as const } })) });
@@ -49,7 +66,19 @@ export async function GET(request: Request) {
         { propertyType: { equals: type, mode: "insensitive" } },
         { propertyType: null, category },
       ] });
+    } else if (categoryFilter !== "residential" && categoryFilter !== "commercial") {
+      where.propertyType = { equals: type, mode: "insensitive" };
+    }
+  }
+  if (categoryFilter === "residential" || categoryFilter === "commercial") {
+    const dbCategory = categoryFilter === "commercial" ? "COMMERCIAL" : "RESIDENTIAL";
+    if (!type || type === "all") {
+      extraConditions.push({ OR: [
+        { category: dbCategory },
+        ...typesForCategory(categoryFilter).map((name) => ({ propertyType: { equals: name, mode: "insensitive" as const } })),
+      ] });
     } else {
+      where.category = dbCategory;
       where.propertyType = { equals: type, mode: "insensitive" };
     }
   }
@@ -72,7 +101,8 @@ export async function GET(request: Request) {
       ...(Number.isFinite(maxPrice) && maxPrice > 0 ? { lte: BigInt(Math.floor(maxPrice)) } : {}),
     };
   }
-  if (Number.isFinite(minBeds) && minBeds > 0) where.bedrooms = { gte: minBeds };
+  if (studioOnly) where.bedrooms = 0;
+  else if (Number.isFinite(minBeds) && minBeds > 0) where.bedrooms = { gte: minBeds };
   if (Number.isFinite(minBaths) && minBaths > 0) where.bathrooms = { gte: minBaths };
   if (Number.isFinite(minSize) && minSize > 0) {
     extraConditions.push({ OR: [

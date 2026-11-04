@@ -434,6 +434,20 @@ model ContactSettings {
   updatedAt     DateTime @updatedAt
 }
 
+model HomeSearchOption {
+  id        String   @id @default(cuid())
+  group     String   @db.VarChar(40)
+  value     String   @db.VarChar(120)
+  label     String   @db.VarChar(120)
+  position  Int      @default(0)
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([group, value])
+  @@index([group, enabled, position])
+}
+
 enum ArticleCategory {
   REAL_ESTATE
   INVESTMENT

@@ -17,6 +17,7 @@ import {
   // Users,
   BookOpen,
   Mail,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import {
@@ -45,6 +46,7 @@ const NAV = [
   { title: "Contacts", url: "/admin/contacts", icon: ContactIcon },
   { title: "Subscribers", url: "/admin/subscribers", icon: Mail },
   { title: "Properties", url: "/admin/properties", icon: Building2 },
+  { title: "Homepage Search", url: "/admin/search-filters", icon: SlidersHorizontal },
   { title: "Future Projects", url: "/admin/future-projects", icon: Rocket },
   { title: "About & Team", url: "/admin/about", icon: Info },
   // { title: "Staff", url: "/admin/staff", icon: Users },

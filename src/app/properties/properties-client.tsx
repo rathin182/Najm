@@ -62,7 +62,11 @@ function PropertiesPage() {
       if (max && max < 999999999) params.set("maxPrice", String(max));
       params.delete("budget");
     }
-    if (search.beds) { params.set("minBeds", search.beds); params.delete("beds"); }
+    if (search.beds) {
+      if (search.beds === "0") params.set("studio", "1");
+      else params.set("minBeds", search.beds);
+      params.delete("beds");
+    }
     if (search.status) { params.set("readiness", search.status === "Off-plan" ? "off-plan" : "ready"); params.delete("status"); }
     if (search.sort) {
       params.set("sort", search.sort === "low" ? "price-low" : search.sort === "high" ? "price-high" : search.sort === "area" ? "size-large" : search.sort);

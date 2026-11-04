@@ -8,6 +8,9 @@ import { Switch } from "@/components/ui/switch";
 import { CITIES, formatSAR, propertyDetails, type Property } from "@/data/properties";
 import { COUNTRIES, DEFAULT_COUNTRY, flagEmoji, joinPhone, splitPhone } from "@/lib/country-codes";
 import { newId, useAdmin, type AdminProperty, type Pair, type PropertyExtra } from "@/lib/admin-store";
+import { CATEGORY_TYPES } from "@/lib/property-categories";
+import type { HomeSearchOptions } from "@/lib/home-search-options";
+import { CATEGORY_GROUPS } from "@/lib/home-search-options";
 
 export function blankProperty(): AdminProperty {
   return {
@@ -41,9 +44,9 @@ function extraFor(p: AdminProperty): PropertyExtra {
 
 const SECTIONS = ["Photos", "Basics", "Price & size", "Description", "Specifications", "Rooms", "Amenities", "Payment plan", "Location", "Agent & SEO", "Investment", "Visibility"] as const;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z]+/g, "-");
-const CATEGORY_TYPES = {
-  Commercial: ["Office", "Shop", "Showroom", "Warehouse", "Industrial Building", "Business Center", "Commercial Land", "Restaurant / Cafe", "Co-working Space"],
-  Residential: ["Apartment / Flat", "Villa", "Independent House", "Penthouse", "Duplex", "Studio Apartment", "Residential Plot", "Townhouse", "Farmhouse"],
+const EDITOR_CATEGORY_TYPES = {
+  Commercial: CATEGORY_TYPES.commercial,
+  Residential: CATEGORY_TYPES.residential,
 } as const;
 
 export function PropertyEditor({ initial }: { initial: AdminProperty }) {
@@ -52,10 +55,25 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const [loadedFromApi, setLoadedFromApi] = useState(false);
   const isNew = !properties.some((p) => p.id === initial.id) && !loadedFromApi;
   const [p, setP] = useState<AdminProperty>(initial);
-  const [category, setCategory] = useState<keyof typeof CATEGORY_TYPES>(p.type === "Commercial" ? "Commercial" : "Residential");
+  const [category, setCategory] = useState<keyof typeof EDITOR_CATEGORY_TYPES>(p.type === "Commercial" ? "Commercial" : "Residential");
+  const [categoryTypes, setCategoryTypes] = useState<{ Commercial: string[]; Residential: string[] }>({ Commercial: [...EDITOR_CATEGORY_TYPES.Commercial], Residential: [...EDITOR_CATEGORY_TYPES.Residential] });
   const [x, setX] = useState<PropertyExtra>(() => extraFor(initial));
   const [busy, setBusy] = useState(false);
   const [bathrooms, setBathrooms] = useState<Pair[]>(() => (Array.isArray((initial.details as { bathrooms?: Pair[] } | undefined)?.bathrooms) ? (initial.details as { bathrooms: Pair[] }).bathrooms : null) ?? Array.from({ length: initial.baths || 0 }, () => ["Bathroom", ""] as Pair));
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/home-search-options", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<HomeSearchOptions> : Promise.reject(new Error("Could not load property types.")))
+      .then((options) => {
+        if (cancelled) return;
+        setCategoryTypes({
+          Residential: options[CATEGORY_GROUPS.residential].map((option) => option.value),
+          Commercial: options[CATEGORY_GROUPS.commercial].map((option) => option.value),
+        });
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     if (properties.some((property) => property.id === initial.id) || !initial.title) return;
     let cancelled = false;
@@ -167,12 +185,12 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
             <div className="sm:col-span-2">
               <p className="mb-2 px-1 text-sm text-muted-foreground">Property Type</p>
               <div className="rounded-2xl bg-cream p-4">
-                <select className="w-full border-0 bg-transparent py-1 outline-none" value={CATEGORY_TYPES[category].includes(p.type as never) ? p.type : ""} onChange={(e) => set("type", e.target.value as Property["type"])}>
+                <select className="w-full border-0 bg-transparent py-1 outline-none" value={categoryTypes[category].includes(p.type as never) ? p.type : ""} onChange={(e) => set("type", e.target.value as Property["type"])}>
                   <option value="" disabled>Select property type</option>
-                  {CATEGORY_TYPES[category].map((t) => <option key={t} value={t}>{t}</option>)}
+                  {categoryTypes[category].map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <div className="mt-3 grid grid-cols-1 gap-x-4 border-t border-border/60 pt-3 sm:grid-cols-2">
-                  {CATEGORY_TYPES[category].map((t) => <button key={t} type="button" onClick={() => set("type", t as Property["type"])} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm ${p.type === t ? "font-medium text-primary" : "text-muted-foreground hover:text-foreground"}`}><span className={`h-3 w-3 rounded-full ${p.type === t ? "bg-primary" : "bg-muted-foreground/50"}`} />{t}</button>)}
+                  {categoryTypes[category].map((t) => <button key={t} type="button" onClick={() => set("type", t as Property["type"])} className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm ${p.type === t ? "font-medium text-primary" : "text-muted-foreground hover:text-foreground"}`}><span className={`h-3 w-3 rounded-full ${p.type === t ? "bg-primary" : "bg-muted-foreground/50"}`} />{t}</button>)}
                 </div>
               </div>
             </div>

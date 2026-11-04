@@ -2,23 +2,56 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ChevronDown, Home as HomeIcon, MapPin, Plus, Minus, Search, Wallet } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, ChevronDown, Home as HomeIcon, MapPin, Plus, Minus, Search, Wallet, BedDouble, CheckCircle2 } from "lucide-react";
 const hero = '/images/hero2.jpg';
 const heroCut = '/images/hero2-cut.png';
 import { GigaProjects, WhyNajm } from "@/components/site/HomeSections";
-import { BUDGETS, CITIES, PROPERTIES, type Property, TYPES, formatSAR } from "@/data/properties";
+import { PROPERTIES, type Property, formatSAR } from "@/data/properties";
+import { useAdmin } from "@/lib/admin-store";
+import type { HomeSearchOptions } from "@/lib/home-search-options";
+import { CATEGORY_GROUPS, PROPERTY_CATEGORIES } from "@/lib/home-search-options";
+import { CATEGORY_LABELS, type PropertyCategoryKey } from "@/lib/property-categories";
 import { PropertyCard } from "@/components/site/PropertyCard";
 import { SectionTitle } from "@/components/site/Layout";
 import { EnquiryForm } from "@/components/site/EnquiryForm";
-import { useLiquidGlass, useReveal } from "@/components/site/motion";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useReveal } from "@/components/site/motion";
 import { introDone } from "@/components/site/PageTransition";
+
+type HeroOption = { value: string; label: string };
+
+function withAny(options: HeroOption[] | undefined, label: string): HeroOption[] {
+  const seen = new Set<string>();
+  const uniqueOptions = (options ?? []).filter((option) => {
+    const value = option.value.trim();
+    if (!value || seen.has(value.toLowerCase())) return false;
+    seen.add(value.toLowerCase());
+    return true;
+  });
+  return [{ value: "", label }, ...uniqueOptions];
+}
 
 function Hero() {
   const router = useRouter();
+  const [homeSearchOptions, setHomeSearchOptions] = useState<HomeSearchOptions>({ locations: [], residentialTypes: [], commercialTypes: [], bedrooms: [], budgets: [], statuses: [] });
   const stageRef = useRef<HTMLDivElement>(null);
   const [loc, setLoc] = useState("");
   const [type, setType] = useState("");
+  const [category, setCategory] = useState<PropertyCategoryKey>("residential");
   const [budget, setBudget] = useState("");
+  const [bedrooms, setBedrooms] = useState("");
+  const [status, setStatus] = useState("");
+  const [propertyTypeOpen, setPropertyTypeOpen] = useState(false);
+  const categoryOptions = homeSearchOptions[CATEGORY_GROUPS[category]];
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/home-search-options", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<HomeSearchOptions> : Promise.reject(new Error("Could not load homepage search filters.")))
+      .then((options) => { if (!cancelled) setHomeSearchOptions(options); })
+      .catch((error) => console.error("Homepage search filters could not be loaded", error))
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +71,6 @@ function Hero() {
     return () => { cancelled = true; ctx?.revert(); };
   }, []);
 
-  useLiquidGlass(".lg-glass", { frost: 0, refraction: 0.003, bevelDepth: 0.04, bevelWidth: 0.1 });
   const sel = "w-full truncate appearance-none bg-transparent text-sm font-medium text-foreground outline-none cursor-pointer md:text-ink-foreground [&>option]:text-foreground";
   const fs = "clamp(2.75rem, min(9.5vw, calc((100svh - 6.5rem) * 0.1377)), 11rem)";
 
@@ -70,36 +102,134 @@ function Hero() {
             const params = new URLSearchParams();
             if (loc) params.set("city", loc);
             if (type) params.set("type", type);
+            if (category) params.set("category", category);
             if (budget) params.set("budget", budget);
-            router.push(`/properties${params.size ? `?${params}` : ""}`);
+            if (bedrooms) params.set("beds", bedrooms);
+            if (status) params.set("status", status.toLowerCase() === "off-plan" ? "Off-plan" : "Ready");
+            const query = params.toString();
+            router.push(query ? `/properties?${query}` : "/properties");
           }}
-          className="absolute inset-x-0 top-full z-30 mx-auto mt-3 max-w-[940px] md:inset-x-8 md:bottom-8 md:top-auto md:mt-0"
+          className="absolute inset-x-0 top-full z-30 mx-auto mt-3 max-w-[1400px] md:inset-x-8 md:bottom-8 md:top-auto md:mt-0"
         >
-          <span aria-hidden className="lg-glass pointer-events-none absolute inset-0 hidden rounded-[2rem] md:block md:rounded-full" />
-          <div className="relative z-10 grid gap-2 rounded-[2rem] bg-cream p-2 md:grid-cols-[1fr_1fr_1fr_auto] md:gap-0 md:rounded-full md:bg-ink/40 md:p-1.5">
-            {[
-              { label: "Location", icon: MapPin, value: loc, set: setLoc, opts: CITIES.map((c) => [c, c]), ph: "Any city in the Kingdom" },
-              { label: "Property type", icon: HomeIcon, value: type, set: setType, opts: TYPES.map((c) => [c, c]), ph: "Villa, penthouse…" },
-              { label: "Budget", icon: Wallet, value: budget, set: setBudget, opts: BUDGETS.map((b) => [b.value, b.label]), ph: "Any budget (SAR)" },
-            ].map((f, i) => (
-              <label key={f.label} className={`group relative flex cursor-pointer items-center gap-4 rounded-full px-4 py-2 transition-colors hover:bg-background/60 md:px-4 md:hover:bg-ink-foreground/10 ${i > 0 ? "md:before:absolute md:before:left-0 md:before:top-1/4 md:before:h-1/2 md:before:w-px md:before:bg-ink-foreground/25" : ""}`}>
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background text-primary">
-                  <f.icon className="h-4 w-4" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-xs text-muted-foreground md:text-ink-foreground/75">{f.label}</span>
-                  <select value={f.value} onChange={(e) => f.set(e.target.value)} className={sel} aria-label={f.label}>
-                    <option value="">{f.ph}</option>
-                    {f.opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                </span>
-                <ChevronDown className="pointer-events-none h-4 w-4 shrink-0 opacity-70 md:text-ink-foreground" />
-              </label>
+<div className="relative z-10 grid gap-1 rounded-[1.4rem] border border-border/50 bg-cream p-2 shadow-xl shadow-ink/15 md:grid-cols-[1.05fr_0.8fr_1.1fr_1fr_minmax(10rem,1.1fr)_auto] md:items-center md:gap-0 md:rounded-full md:border-white/25 md:bg-ink/55 md:px-2.5 md:py-2 md:shadow-2xl md:backdrop-blur-xl md:backdrop-saturate-150">
+
+  {[
+    { label: "Location", icon: MapPin, value: loc, set: setLoc, opts: withAny(homeSearchOptions.locations, "Any location") },
+    { label: "Bedrooms", icon: BedDouble, value: bedrooms, set: setBedrooms, opts: withAny(homeSearchOptions.bedrooms, "Any bedrooms") },
+    { label: "Price range (SAR)", icon: Wallet, value: budget, set: setBudget, opts: withAny(homeSearchOptions.budgets, "Any price") },
+    { label: "Property status", icon: CheckCircle2, value: status, set: setStatus, opts: withAny(homeSearchOptions.statuses, "Any status") },
+  ].map((f, i) => (
+    <label
+      key={f.label}
+      className={`group relative flex min-w-0 cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors hover:bg-background/60 md:gap-2.5 md:rounded-full md:px-3 md:py-2 md:hover:bg-white/10 ${
+        i > 0
+          ? "md:before:absolute md:before:left-0 md:before:top-1/4 md:before:h-1/2 md:before:w-px md:before:bg-white/25"
+          : ""
+      }`}
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-primary">
+        <f.icon className="h-3.5 w-3.5" />
+      </span>
+
+      <span className="flex min-w-0 flex-1 flex-col justify-center">
+        <span className="text-[10px] leading-none text-muted-foreground md:text-ink-foreground/75">
+          {f.label}
+        </span>
+
+        <select
+          value={f.value}
+          onChange={(e) => f.set(e.target.value)}
+          className={`${sel} mt-0.5 text-xs leading-tight`}
+          aria-label={f.label}
+        >
+          {f.opts.map(({ value, label }) => (
+              <option key={value || "any"} value={value}>
+                {label}
+              </option>
             ))}
-            <button className="flex items-center justify-center gap-2 self-center rounded-full bg-primary px-6 py-3 text-base text-primary-foreground transition-colors hover:bg-background hover:text-foreground md:mr-1">
-              <Search className="h-4 w-4" /> Search
-            </button>
-          </div>
+        </select>
+      </span>
+
+      <ChevronDown className="pointer-events-none h-3.5 w-3.5 shrink-0 opacity-70 md:text-ink-foreground" />
+    </label>
+  ))}
+
+  {/* Property Type */}
+  <Popover open={propertyTypeOpen} onOpenChange={setPropertyTypeOpen}>
+    <PopoverTrigger asChild>
+      <button
+        type="button"
+        aria-label="Choose property type"
+        aria-expanded={propertyTypeOpen}
+        className="group relative flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-background/60 md:rounded-full md:px-3 md:py-2 md:hover:bg-white/10 md:before:absolute md:before:left-0 md:before:top-1/4 md:before:h-1/2 md:before:w-px md:before:bg-white/25"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-primary">
+          <HomeIcon className="h-3.5 w-3.5" />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[10px] leading-none text-muted-foreground md:text-ink-foreground/75">Property type</span>
+          <span className="mt-1 truncate text-xs font-medium text-foreground md:text-ink-foreground">
+            {type || `All ${CATEGORY_LABELS[category].toLowerCase()} types`}
+          </span>
+        </span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform md:text-ink-foreground ${propertyTypeOpen ? "rotate-180" : ""}`} />
+      </button>
+    </PopoverTrigger>
+    <PopoverContent align="start" sideOffset={10} className="z-[80] w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-background p-0 shadow-xl">
+      <div className="grid grid-cols-2 border-b border-border px-3 pt-2">
+        {PROPERTY_CATEGORIES.map((key) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={category === key}
+            onClick={() => { setCategory(key); setType(""); }}
+            className={`border-b-2 px-3 py-3 text-sm transition-colors ${category === key ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+          >
+            {CATEGORY_LABELS[key]}
+          </button>
+        ))}
+      </div>
+      <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto p-3">
+        <button
+          type="button"
+          aria-pressed={!type}
+          onClick={() => { setType(""); setPropertyTypeOpen(false); }}
+          className={`flex min-h-10 items-center gap-2 rounded-full border px-3 text-left text-sm transition-colors ${!type ? "border-primary/40 bg-primary/5 text-primary" : "border-border text-foreground hover:bg-cream"}`}
+        >
+          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${!type ? "border-primary" : "border-border"}`}>
+            {!type && <span className="h-2 w-2 rounded-full bg-primary" />}
+          </span>
+          <span className="truncate">All {CATEGORY_LABELS[category].toLowerCase()} types</span>
+        </button>
+        {categoryOptions.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={type === value}
+            onClick={() => { setType(value); setPropertyTypeOpen(false); }}
+            className={`flex min-h-10 items-center gap-2 rounded-full border px-3 text-left text-sm transition-colors ${type === value ? "border-primary/40 bg-primary/5 text-primary" : "border-border text-foreground hover:bg-cream"}`}
+          >
+            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${type === value ? "border-primary" : "border-border"}`}>
+              {type === value && <span className="h-2 w-2 rounded-full bg-primary" />}
+            </span>
+            <span className="truncate">{label}</span>
+          </button>
+        ))}
+      </div>
+    </PopoverContent>
+  </Popover>
+
+  {/* Search Button */}
+  <button
+    type="submit"
+    className="flex items-center justify-center gap-2 self-stretch rounded-full bg-primary px-5 py-2.5 text-sm text-primary-foreground transition-colors hover:bg-background hover:text-foreground md:my-0.5 md:mr-0.5 md:self-stretch"
+  >
+    <Search className="h-4 w-4" />
+    <span className="hidden xl:inline">Search</span>
+  </button>
+
+</div>
+
         </form>
       </div>
     </section>

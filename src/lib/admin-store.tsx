@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "next-auth/react";
 import { PROPERTIES, type Property } from "@/data/properties";
+import type { HomeSearchOptions } from "@/lib/home-search-options";
 
 /** Admin workspace data stays browser-local; identity and permissions come from the server JWT. */
 
@@ -68,6 +69,7 @@ export const PERMS: Record<Role, { edit: boolean; delete: boolean; staff: boolea
 };
 
 type Ctx = Data & {
+  homeSearchOptions: HomeSearchOptions;
   ready: boolean;
   user: Staff | null;
   can: (typeof PERMS)[Role];
@@ -96,7 +98,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     let d = seed();
     try {
       const raw = localStorage.getItem(KEY);
-      if (raw) d = JSON.parse(raw);
+      if (raw) d = { ...seed(), ...JSON.parse(raw) };
       const inbox = JSON.parse(localStorage.getItem(INBOX) || "[]");
       if (inbox.length) { d.enquiries = [...inbox.reverse(), ...d.enquiries]; localStorage.removeItem(INBOX); }
     } catch { /* ignore */ }
@@ -108,6 +110,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (!ready) return;
     try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota: large photos */ }
   }, [data, ready]);
+
+  useEffect(() => {
+    const syncFromOtherTab = (event: StorageEvent) => {
+      if (event.key !== KEY || !event.newValue) return;
+      try { setData({ ...seed(), ...JSON.parse(event.newValue) }); } catch { /* ignore invalid stored data */ }
+    };
+    window.addEventListener("storage", syncFromOtherTab);
+    return () => window.removeEventListener("storage", syncFromOtherTab);
+  }, []);
 
   const sessionUser = session?.user;
   const user: Staff | null = sessionUser ? {
@@ -138,6 +149,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     saveStaff: (s) => setData((d) => ({ ...d, staff: upsert(d.staff, s) })),
     deleteStaff: (id) => setData((d) => ({ ...d, staff: d.staff.filter((s) => s.id !== id) })),
     reset: () => setData(seed()),
+    homeSearchOptions: EMPTY_HOME_SEARCH_OPTIONS,
   }), [data, ready, sessionStatus, user, login]);
 
   return <AdminCtx.Provider value={value}>{children}</AdminCtx.Provider>;
@@ -148,5 +160,7 @@ export function useAdmin() {
   if (!c) throw new Error("useAdmin must be used inside AdminProvider");
   return c;
 }
+
+const EMPTY_HOME_SEARCH_OPTIONS: HomeSearchOptions = { locations: [], residentialTypes: [], commercialTypes: [], bedrooms: [], budgets: [], statuses: [] };
 
 export const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });

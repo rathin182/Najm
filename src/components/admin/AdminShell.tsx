@@ -1,4 +1,3 @@
-
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
@@ -18,6 +17,8 @@ import {
   BookOpen,
   Mail,
   SlidersHorizontal,
+  Sparkles,
+  BadgeCheck,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,8 @@ const NAV = [
   { title: "Homepage Search", url: "/admin/search-filters", icon: SlidersHorizontal },
   { title: "Future Projects", url: "/admin/future-projects", icon: Rocket },
   { title: "About & Team", url: "/admin/about", icon: Info },
+  { title: "Why Najm", url: "/admin/why-najm", icon: Sparkles },
+  { title: "Promises", url: "/admin/promises", icon: BadgeCheck },
   // { title: "Staff", url: "/admin/staff", icon: Users },
   { title: "Contact Info", url: "/admin/contact-info", icon: FileText },
   { title: "Knowledge Hub", url: "/admin/blog", icon: BookOpen },

@@ -6,8 +6,8 @@ import { ArrowDownRight, ArrowUpRight, MapPin, Plus, Minus, Search, Wallet, BedD
 const hero = '/images/hero2.jpg';
 const heroCut = '/images/hero2-cut.png';
 import { GigaProjects, WhyNajm } from "@/components/site/HomeSections";
-import { PROPERTIES, type Property, formatSAR } from "@/data/properties";
-import { useAdmin } from "@/lib/admin-store";
+import { type Property, formatSAR } from "@/data/properties";
+import { useAdmin, type AdminProperty } from "@/lib/admin-store";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
 // import { CATEGORY_GROUPS, PROPERTY_CATEGORIES } from "@/lib/home-search-options";
 // import { CATEGORY_LABELS, type PropertyCategoryKey } from "@/lib/property-categories";
@@ -296,6 +296,7 @@ function Home() {
   const [faq, setFaq] = useState<number | null>(0);
   const [featured, setFeatured] = useState<Property[]>([]);
   const [otherProperties, setOtherProperties] = useState<Property[]>([]);
+  const [vault, setVault] = useState<AdminProperty[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -346,7 +347,19 @@ function Home() {
     return () => { cancelled = true; };
   }, []);
 
-  const vault = PROPERTIES.filter((p) => p.investment).slice(0, 4);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/listings/investment-vault", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load investment properties.");
+        return response.json() as Promise<AdminProperty[]>;
+      })
+      .then((listings) => {
+        if (!cancelled && Array.isArray(listings)) setVault(listings);
+      })
+      .catch((error) => console.error("Investment Vault could not be loaded", error));
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <main>
@@ -368,6 +381,7 @@ function Home() {
       </section>
 
       {/* Investment Vault */}
+      {vault.length > 0 && (
       <section id="vault" className="scroll-mt-24 bg-cream px-6 py-20">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-10 md:grid-cols-2 md:items-end">
@@ -388,6 +402,10 @@ function Home() {
                   <p className="text-sm text-muted-foreground">Est. annual yield · {p.investment!.label}</p>
                   <p className="mt-3 text-lg font-medium">{p.title}</p>
                   <p className="text-sm text-muted-foreground">{formatSAR(p.price)} · {p.city}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Est. rent {formatSAR(p.details?.annualRent ?? 0)}/yr
+                    {p.details?.priceGrowth5yr != null && <> · {p.details.priceGrowth5yr}% 5-yr growth</>}
+                  </p>
                 </div>
                 <ArrowUpRight className="mr-3 hidden h-7 w-7 transition-transform group-hover:-translate-y-1 group-hover:translate-x-1 md:block" />
               </Link>
@@ -395,6 +413,7 @@ function Home() {
           </div>
         </div>
       </section>
+      )}
 
       {/* Other properties */}
       <section className="px-6 py-20">

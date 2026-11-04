@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, BadgeCheck, Building2, Handshake, Landmark, LineChart, ShieldCheck } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { formatBudget, formatDeadline, type FutureProject } from "@/lib/future-projects";
 import { TeamMembers } from "@/components/site/TeamMembers";
-const office = '/images/office.jpg';
-const p2 = '/images/p2.jpg';
-const p3 = '/images/p3.jpg';
+import { DEFAULT_WHY_NAJM, splitAccent, type WhyNajmSettingsData } from "@/lib/why-najm";
+import { WHY_NAJM_ICONS } from "@/lib/why-najm-icons";
+import { CATEGORY_GROUPS, PROPERTY_CATEGORIES, type HomeSearchOptions } from "@/lib/home-search-options";
+import { CATEGORY_LABELS, CATEGORY_TYPES } from "@/lib/property-categories";
 
 /** Giga projects: tall sticky stage; vertical scroll progress drives the card track horizontally on desktop (no pinning, so nothing overlaps). */
 export function GigaProjects() {
@@ -102,81 +103,135 @@ export function GigaProjects() {
   );
 }
 
-const STATS = [
-  { n: "18+", t: "Years of local expertise" },
-  { n: "SAR 6B", t: "In property transacted" },
-  { n: "2,400+", t: "Families and investors housed" },
-  { n: "4.9/5", t: "Average client rating" },
-];
+/** Title with one accented word, e.g. "Six <promises> behind every deal". */
+function AccentTitle({ title, accent, className = "" }: { title: string; accent: string; className?: string }) {
+  const [before, match, after] = splitAccent(title, accent);
+  return <>{before}{match && <span className={`fancy ${className}`}>{match}</span>}{after}</>;
+}
 
-const PILLARS = [
-  { icon: BadgeCheck, t: "100% verified listings", d: "Every title deed, building permit and developer licence is checked against Ejar and REGA records before a home reaches you." },
-  { icon: Landmark, t: "Off-market access", d: "Around a third of our sales never appear online — private releases from developers and families who trust our discretion." },
-  { icon: LineChart, t: "Investment intelligence", d: "Yield forecasts, rental comparables and Vision 2030 pipeline data for every property, so decisions rest on numbers." },
-  { icon: Handshake, t: "Financing made simple", d: "Sharia-compliant mortgages arranged with leading Saudi banks, including options for eligible non-residents." },
-  { icon: ShieldCheck, t: "Legal & handover", d: "REGA-compliant contracts, escrow-protected payments, snagging inspections and utility setup — all handled." },
-  { icon: Building2, t: "After-sale care", d: "Property management, leasing and resale support, so your home keeps performing long after the keys change hands." },
-];
+const CATEGORY_IMAGES = { residential: "/images/p2.jpg", commercial: "/images/p3.jpg" } as const;
+const MAX_TYPES_SHOWN = 5;
 
-/** Why Najm: green intro + stats, cream service pillars, white lounge + team. */
-export function WhyNajm() {
+/** Residential / Commercial cards. Their property types come from Admin → Search filters (the homepage Property type options). */
+function PropertyTypeCards() {
+  const [options, setOptions] = useState<Pick<HomeSearchOptions, "residentialTypes" | "commercialTypes"> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/home-search-options", { cache: "no-store" })
+      .then((response) => (response.ok ? (response.json() as Promise<HomeSearchOptions>) : Promise.reject(new Error("Could not load property types."))))
+      .then((data) => { if (!cancelled) setOptions(data); })
+      .catch((error) => console.error("Property types could not be loaded", error));
+    return () => { cancelled = true; };
+  }, []);
+
   return (
-    <section>
+    <div className="grid gap-4 sm:grid-cols-2">
+      {PROPERTY_CATEGORIES.map((category) => {
+        const items = options
+          ? options[CATEGORY_GROUPS[category]]
+          : CATEGORY_TYPES[category].map((value) => ({ value, label: value }));
+        const extra = items.length - MAX_TYPES_SHOWN;
+        const href = `/properties?category=${category}`;
+        const pill = "rounded-full bg-background px-4 py-0.5 text-sm text-foreground transition-colors hover:bg-primary hover:text-primary-foreground";
+        return (
+          <div key={category} className="flex gap-5 rounded-[2rem] bg-cream p-3" data-reveal>
+            <Link href={href} aria-label={`Browse ${CATEGORY_LABELS[category]} properties`} className="shrink-0">
+              <img src={CATEGORY_IMAGES[category]} alt={CATEGORY_LABELS[category]} loading="lazy" className="h-32 w-32 rounded-[1.5rem] object-cover md:h-40 md:w-40" />
+            </Link>
+            <div className="flex-1 py-3 pr-3">
+              <Link href={href} className="group flex items-center justify-between gap-3 text-xl font-medium">
+                {CATEGORY_LABELS[category]}
+                <ArrowUpRight className="h-5 w-5 text-primary opacity-60 transition-opacity group-hover:opacity-100" />
+              </Link>
+              {items.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {items.slice(0, MAX_TYPES_SHOWN).map((item) => (
+                    <Link key={item.value} href={`${href}&type=${encodeURIComponent(item.value)}`} className={pill}>{item.label}</Link>
+                  ))}
+                  {extra > 0 && <Link href={href} className={`${pill} text-primary`}>+{extra} more</Link>}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Why Najm: green intro + stats, cream service pillars, white features + team. Intro, stats and promises are managed in Admin → Why Najm / Promises. */
+export function WhyNajm() {
+  const [s, setS] = useState<WhyNajmSettingsData | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/why-najm", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load Why Najm.");
+        return response.json() as Promise<WhyNajmSettingsData>;
+      })
+      .then((data) => { if (!cancelled) setS(data); })
+      .catch((error) => {
+        console.error("Why Najm could not be loaded", error);
+        if (!cancelled) setS(DEFAULT_WHY_NAJM);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Hold the space until the admin's content arrives, so default text never flashes first.
+  if (!s) return <section id="why-najm" aria-hidden className="min-h-[70vh]" />;
+
+  return (
+    <section id="why-najm" className="scroll-mt-24">
       <div className="bg-primary px-6 py-24 text-primary-foreground">
         <div className="mx-auto max-w-[1440px]">
           <div className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-end">
-            <h2 className="display-lg" data-reveal><span className="fancy !text-primary-foreground">Why</span> Najm?</h2>
-            <p className="text-xl opacity-80" data-reveal>
-              We are a Riyadh-born advisory built for one thing: helping families and investors own the right Saudi address with total confidence — from first viewing to long after handover.
-            </p>
+            <h2 className="display-lg" data-reveal>
+              {s.headingAccent && <><span className="fancy !text-primary-foreground">{s.headingAccent}</span>{" "}</>}{s.heading}
+            </h2>
+            {s.intro && <p className="text-xl opacity-80" data-reveal>{s.intro}</p>}
           </div>
-          <div className="mt-16 grid gap-x-10 gap-y-10 md:grid-cols-2 lg:grid-cols-4">
-            {STATS.map((s) => (
-              <div key={s.t} data-reveal>
-                <p className="display-lg">{s.n}</p>
-                <p className="mt-3 text-lg opacity-75">{s.t}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-cream px-6 py-24">
-        <div className="mx-auto max-w-[1440px]">
-          <h3 className="display-md max-w-2xl" data-reveal>Six <span className="fancy">promises</span> behind every deal</h3>
-          <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {PILLARS.map((p) => (
-              <div key={p.t} className="rounded-[2rem] bg-background p-8 transition-transform duration-500 hover:-translate-y-1" data-reveal>
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground"><p.icon className="h-6 w-6" /></span>
-                <h4 className="mt-10 text-2xl font-medium tracking-tight">{p.t}</h4>
-                <p className="mt-3 text-base text-muted-foreground">{p.d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-background px-6 py-24">
-        <div className="mx-auto max-w-[1440px]">
-          <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-            <div className="relative min-h-[420px] overflow-hidden rounded-[2.5rem]" data-reveal>
-              <img src={office} alt="Najm Estate client lounge in Riyadh" loading="lazy" width={1600} height={1008} className="absolute inset-0 h-full w-full object-cover" />
-              <div className="absolute inset-x-5 bottom-5 rounded-[1.75rem] bg-background p-6 md:max-w-md">
-                <p className="text-sm text-muted-foreground">Our flagship lounge</p>
-                <p className="mt-1 text-xl font-medium tracking-tight">King Fahd Road, Riyadh — private viewings by appointment, seven days a week.</p>
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              {[[p2, "Villa sourcing", "Off-market villas in Al Malqa, Hittin and Diriyah."], [p3, "Coastal homes", "Red Sea and Corniche residences with sea frontage."]].map(([img, t, d]) => (
-                <div key={t} className="flex gap-5 rounded-[2rem] bg-cream p-3" data-reveal>
-                  <img src={img} alt={t} loading="lazy" className="h-32 w-32 shrink-0 rounded-[1.5rem] object-cover md:h-40 md:w-40" />
-                  <div className="py-3 pr-3"><p className="text-xl font-medium">{t}</p><p className="mt-2 text-muted-foreground">{d}</p></div>
+          {s.stats.length > 0 && (
+            <div className="mt-16 grid gap-x-10 gap-y-10 md:grid-cols-2 lg:grid-cols-4">
+              {s.stats.map((stat, i) => (
+                <div key={`${stat.label}-${i}`} data-reveal>
+                  <p className="display-lg">{stat.value}</p>
+                  <p className="mt-3 text-lg opacity-75">{stat.label}</p>
                 </div>
               ))}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
 
-          <div className="mt-24 flex flex-wrap items-end justify-between gap-6">
+      {s.pillars.length > 0 && (
+        <div className="bg-cream px-6 py-24">
+          <div className="mx-auto max-w-[1440px]">
+            {s.pillarsTitle && (
+              <h3 className="display-md max-w-2xl" data-reveal><AccentTitle title={s.pillarsTitle} accent={s.pillarsAccent} /></h3>
+            )}
+            <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {s.pillars.map((p, i) => {
+                const Icon = WHY_NAJM_ICONS[p.icon] ?? WHY_NAJM_ICONS.BadgeCheck;
+                return (
+                  <div key={`${p.title}-${i}`} className="rounded-[2rem] bg-background p-8 transition-transform duration-500 hover:-translate-y-1" data-reveal>
+                    <span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground"><Icon className="h-6 w-6" /></span>
+                    <h4 className="mt-10 text-2xl font-medium tracking-tight">{p.title}</h4>
+                    {p.description && <p className="mt-3 text-base text-muted-foreground">{p.description}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-background px-6 py-12">
+        <div className="mx-auto max-w-[1440px]">
+          <PropertyTypeCards />
+
+          <div className="mt-12 flex flex-wrap items-end justify-between gap-6">
             <h3 className="display-md" data-reveal>The <span className="fancy">people</span> behind Najm</h3>
             <Link href="/about" className="flex items-center gap-2 text-lg text-primary hover:opacity-70" data-reveal>Meet the full team <ArrowUpRight className="h-5 w-5" /></Link>
           </div>

@@ -434,6 +434,25 @@ model ContactSettings {
   updatedAt     DateTime @updatedAt
 }
 
+model WhyNajmSettings {
+  id             String   @id @default("main")
+  headingAccent  String   @default("Why")
+  heading        String   @default("Najm?")
+  intro          String   @default("") @db.Text
+  stats          Json     @default("[]")
+  pillarsTitle   String   @default("")
+  pillarsAccent  String   @default("")
+  pillars        Json     @default("[]")
+  loungeImage    String   @default("")
+  loungeImageAlt String   @default("")
+  loungeLabel    String   @default("")
+  loungeText     String   @default("") @db.Text
+  features       Json     @default("[]")
+  teamTitle      String   @default("")
+  teamAccent     String   @default("")
+  updatedAt      DateTime @updatedAt
+}
+
 model HomeSearchOption {
   id        String   @id @default(cuid())
   group     String   @db.VarChar(40)

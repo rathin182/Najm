@@ -35,6 +35,9 @@ const EMPTY_OPTIONS: HomeSearchOptions = {
   statuses: [],
 };
 
+// For these groups the filter value must equal the name stored on listings, so it simply follows the label.
+const VALUE_FOLLOWS_LABEL: HomeSearchGroup[] = ["locations", "residentialTypes", "commercialTypes"];
+
 async function readJson(response: Response) {
   return response.json().catch(() => null) as Promise<unknown>;
 }
@@ -113,7 +116,8 @@ export default function HomepageSearchFiltersPage() {
         ...current[group],
         {
           label: "New option",
-          value: `new-option-${Date.now()}`,
+          // value: `new-option-${Date.now()}`,
+          value: VALUE_FOLLOWS_LABEL.includes(group) ? "New option" : `new-option-${Date.now()}`,
         },
       ],
     }));
@@ -382,6 +386,7 @@ function SearchOptionGroup({
               option={option}
               index={index}
               count={options.length}
+              valueFollowsLabel={VALUE_FOLLOWS_LABEL.includes(group)}
               onUpdate={(changes) => onUpdate(index, changes)}
               onRemove={() => onRemove(index)}
               onMove={(direction) => onMove(index, direction)}
@@ -397,6 +402,7 @@ function SearchOptionRow({
   option,
   index,
   count,
+  valueFollowsLabel,
   onUpdate,
   onRemove,
   onMove,
@@ -404,29 +410,43 @@ function SearchOptionRow({
   option: SearchOption;
   index: number;
   count: number;
+  valueFollowsLabel: boolean;
   onUpdate: (changes: Partial<SearchOption>) => void;
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl bg-background p-3 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
+    // <div className="grid gap-2 rounded-2xl bg-background p-3 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
+    <div className={`grid gap-2 rounded-2xl bg-background p-3 md:items-end ${valueFollowsLabel ? "md:grid-cols-[1fr_auto_auto]" : "md:grid-cols-[1fr_1fr_auto_auto]"}`}>  
       <label className="text-xs text-muted-foreground">
         Label
         <input
           className="field mt-1"
           value={option.label}
-          onChange={(event) => onUpdate({ label: event.target.value })}
+          // onChange={(event) => onUpdate({ label: event.target.value })}
+          onChange={(event) => onUpdate(valueFollowsLabel ? { label: event.target.value, value: event.target.value } : { label: event.target.value })}
         />
       </label>
 
-      <label className="text-xs text-muted-foreground">
+      {/* <label className="text-xs text-muted-foreground">
         Filter value
         <input
           className="field mt-1"
           value={option.value}
           onChange={(event) => onUpdate({ value: event.target.value })}
         />
-      </label>
+      </label> */}
+
+      {!valueFollowsLabel && (
+        <label className="text-xs text-muted-foreground">
+          Filter value
+          <input
+            className="field mt-1"
+            value={option.value}
+            onChange={(event) => onUpdate({ value: event.target.value })}
+          />
+        </label>
+      )}
 
       <div className="flex gap-1">
         <button

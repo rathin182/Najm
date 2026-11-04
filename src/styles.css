@@ -212,3 +212,12 @@ html.lenis, html.lenis body { height: auto; }
 .article-prose img { display: block; width: 100%; border-radius: 1.75rem; margin-block: 2em; }
 .article-prose pre { background: var(--cream); border-radius: 1rem; padding: 1rem 1.25rem; overflow-x: auto; font-size: 0.95rem; }
 .article-prose pre code { background: none; padding: 0; }
+
+/* Hide scrollbars without disabling scrolling (used by the properties filter sidebar). */
+@utility scrollbar-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

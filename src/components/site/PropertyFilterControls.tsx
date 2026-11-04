@@ -90,7 +90,7 @@ export function SingleSelectDropdown({ options, value, onChange, placeholder, la
       <SelectTrigger aria-label={label} className="h-11 w-full rounded-xl border-0 bg-cream px-3.5 text-[13px] shadow-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent align="start" className="rounded-xl border-border bg-background shadow-soft">
+      <SelectContent align="start" className="z-[80] rounded-xl border-border bg-background shadow-soft">
         {list.map((option) => (
           <SelectItem key={option} value={option} className="rounded-lg py-2.5 text-[13px] focus:bg-primary/10 focus:text-foreground">
             {option}
@@ -101,18 +101,51 @@ export function SingleSelectDropdown({ options, value, onChange, placeholder, la
   );
 }
 
+/** Single-select dropdown for admin-managed value/label options. */
+export function OptionSelectDropdown({ options, value, onChange, placeholder, label, }: {
+  options: { value: string; label: string }[];
+  value: string | undefined;
+  onChange: (next: string) => void;
+  placeholder: string;
+  label: string;
+}) {
+  return (
+    <Select
+      value={value || "__all__"}
+      onValueChange={(next) => onChange(next === "__all__" ? "" : next)}
+    >
+      <SelectTrigger aria-label={label} className="h-11 w-full rounded-xl border-0 bg-cream px-3.5 text-[13px] shadow-none focus:ring-1 focus:ring-primary">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent align="start" className="z-[80] rounded-xl border-border bg-background shadow-soft">
+        <SelectItem value="__all__" className="rounded-lg py-2.5 text-[13px] focus:bg-primary/10 focus:text-foreground">Any</SelectItem>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value} className="rounded-lg py-2.5 text-[13px] focus:bg-primary/10 focus:text-foreground">
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 /** Residential / Commercial buttons + a type dropdown that lists only that category's types. */
-export function PropertyTypeFilter({ category, type, onChange, }: {
+export function PropertyTypeFilter({ category, type, onChange, typesByCategory, }: {
   category: string | undefined;
-  type: string | undefined;
+  type: string | undefined;   
+  typesByCategory?: Record<PropertyCategoryKey, readonly string[]> | undefined;
   onChange: (category: string | undefined, type: string | undefined) => void;
 }) {
   const lowerType = (type ?? "").toLowerCase();
   const typeIsCategoryWord = lowerType === "residential" || lowerType === "commercial";
-  const keys = Object.keys(CATEGORY_TYPES) as PropertyCategoryKey[];
+  // const keys = Object.keys(CATEGORY_TYPES) as PropertyCategoryKey[];
+  const types: Record<PropertyCategoryKey, readonly string[]> = typesByCategory ?? CATEGORY_TYPES;
+  const keys = Object.keys(types) as PropertyCategoryKey[];
   // Falls back to the type in the URL (e.g. ?type=Villa from a link) so the right category lights up.
-  const active: PropertyCategoryKey | undefined = category === "residential" || category === "commercial" ? category : keys.find((key) => key === lowerType || CATEGORY_TYPES[key].some((item) => item.toLowerCase() === lowerType));
-  const options: string[] = active ? [...CATEGORY_TYPES[active]] : [];
+  // const active: PropertyCategoryKey | undefined = category === "residential" || category === "commercial" ? category : keys.find((key) => key === lowerType || CATEGORY_TYPES[key].some((item) => item.toLowerCase() === lowerType));
+  // const options: string[] = active ? [...CATEGORY_TYPES[active]] : [];
+  const active: PropertyCategoryKey | undefined = category === "residential" || category === "commercial" ? category : keys.find((key) => key === lowerType || types[key].some((item) => item.toLowerCase() === lowerType));
+  const options: string[] = active ? [...types[active]] : [];
   const value = options.find((option) => option.toLowerCase() === lowerType) ?? (type && !typeIsCategoryWord ? type : "");
   const icons = { residential: Home, commercial: Building2 } as const;
 
@@ -135,18 +168,37 @@ export function PropertyTypeFilter({ category, type, onChange, }: {
 }
 
 /** Segmented buttons with a separate label and value. Clicking the active one clears it (handled by the caller). */
-export function OptionSegment({ options, value, onPick, }: {
+// export function OptionSegment({ options, value, onPick, }: {
+//   options: { value: string; label: string }[];
+//   value: string | undefined;
+//   onPick: (value: string) => void;
+// }) {
+//   return (
+//     <div className="flex gap-1 rounded-full bg-cream p-1">
+//       {options.map((option) => (
+//         <button key={option.value} type="button" onClick={() => onPick(option.value)} className={`flex-1 rounded-full px-1 py-1.5 text-[13px] transition-colors ${value === option.value ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}>
+//           {option.label}
+//         </button>
+//       ))}
+//     </div>
+//   );
+// }
+export function OptionSegment({ options, value, onPick, wrap = false, }: {
   options: { value: string; label: string }[];
   value: string | undefined;
   onPick: (value: string) => void;
+  wrap?: boolean;
 }) {
   return (
-    <div className="flex gap-1 rounded-full bg-cream p-1">
-      {options.map((option) => (
-        <button key={option.value} type="button" onClick={() => onPick(option.value)} className={`flex-1 rounded-full px-1 py-1.5 text-[13px] transition-colors ${value === option.value ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}>
-          {option.label}
-        </button>
-      ))}
+    <div className={wrap ? "flex flex-wrap gap-1 rounded-2xl bg-cream p-1" : "flex gap-1 rounded-full bg-cream p-1"}>
+      {options.map((option) => {
+        const active = value?.toLowerCase() === option.value.toLowerCase();
+        return (
+          <button key={option.value} type="button" onClick={() => onPick(option.value)} className={`${wrap ? "min-w-[3rem] px-3" : "px-1"} flex-1 rounded-full py-1.5 text-[13px] transition-colors ${active ? "bg-primary text-primary-foreground" : "hover:bg-background"}`}>
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

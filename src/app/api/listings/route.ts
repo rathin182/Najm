@@ -78,7 +78,7 @@ export async function GET(request: Request) {
         ...typesForCategory(categoryFilter).map((name) => ({ propertyType: { equals: name, mode: "insensitive" as const } })),
       ] });
     } else {
-      where.category = dbCategory;
+      // where.category = dbCategory;
       where.propertyType = { equals: type, mode: "insensitive" };
     }
   }
@@ -128,13 +128,13 @@ export async function GET(request: Request) {
   if (areaMax) {
     extraConditions.push({ OR: [{ areaSqm: { lte: areaMax } }, { areaSqm: null, areaSqft: { lt: Math.ceil((areaMax + 0.5) / 0.092903) } }] });
   }
-  const categoryParam = searchParams.get("category");
-  if (categoryParam === "residential" || categoryParam === "commercial") {
-    extraConditions.push({ OR: [
-      { category: categoryParam === "commercial" ? "COMMERCIAL" : "RESIDENTIAL" },
-      ...CATEGORY_TYPES[categoryParam].map((name) => ({ propertyType: { equals: name, mode: "insensitive" as const } })),
-    ] });
-  }
+  // const categoryParam = searchParams.get("category");
+  // if (categoryParam === "residential" || categoryParam === "commercial") {
+  //   extraConditions.push({ OR: [
+  //     { category: categoryParam === "commercial" ? "COMMERCIAL" : "RESIDENTIAL" },
+  //     ...CATEGORY_TYPES[categoryParam].map((name) => ({ propertyType: { equals: name, mode: "insensitive" as const } })),
+  //   ] });
+  // }
   if (Number.isFinite(minYield) && minYield > 0) where.projectedYield = { gte: String(minYield) };
   if (query) {
     extraConditions.push({ OR: [

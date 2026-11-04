@@ -39,7 +39,10 @@ export async function POST(request: Request) {
   const parsed = propertySchema.safeParse(await request.json());
   if (!parsed.success) return Response.json({ error: "Invalid property data.", issues: parsed.error.flatten() }, { status: 400 });
   const p = parsed.data;
-  const category: PropertyCategory = p.type.toLowerCase().includes("commercial") || ["office", "shop", "showroom", "warehouse", "industrial building", "business center", "restaurant / cafe", "co-working space"].includes(p.type.toLowerCase()) ? "COMMERCIAL" : p.type.toLowerCase().includes("land") || p.type.toLowerCase().includes("plot") ? "LAND" : "RESIDENTIAL";
+  // const category: PropertyCategory = p.type.toLowerCase().includes("commercial") || ["office", "shop", "showroom", "warehouse", "industrial building", "business center", "restaurant / cafe", "co-working space"].includes(p.type.toLowerCase()) ? "COMMERCIAL" : p.type.toLowerCase().includes("land") || p.type.toLowerCase().includes("plot") ? "LAND" : "RESIDENTIAL";
+  const configuredCommercial = (await prisma.homeSearchOption.findMany({ where: { enabled: true, group: "commercialTypes" }, select: { value: true } })).map((row) => row.value.trim().toLowerCase());
+  const typeKey = p.type.trim().toLowerCase();
+  const category: PropertyCategory = configuredCommercial.includes(typeKey) || typeKey.includes("commercial") || ["office", "shop", "showroom", "warehouse", "industrial building", "business center", "restaurant / cafe", "co-working space"].includes(typeKey) ? "COMMERCIAL" : typeKey.includes("land") || typeKey.includes("plot") ? "LAND" : "RESIDENTIAL";
   const listingType: ListingType = "SALE";
   const requestedSlug = slugify(p.id || p.title) || `property-${Date.now()}`;
   const slug = await prisma.listing.findFirst({ where: { slug: requestedSlug, ownerId: { not: session!.user.id } }, select: { id: true } }).then((conflict) => conflict ? `${requestedSlug}-${slugify(p.title).slice(0, 24) || "listing"}` : requestedSlug);

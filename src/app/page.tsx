@@ -2,48 +2,68 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, ChevronDown, Home as HomeIcon, MapPin, Plus, Minus, Search, Wallet, BedDouble, CheckCircle2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, MapPin, Plus, Minus, Search, Wallet, BedDouble, CheckCircle2 } from "lucide-react";
 const hero = '/images/hero2.jpg';
 const heroCut = '/images/hero2-cut.png';
 import { GigaProjects, WhyNajm } from "@/components/site/HomeSections";
 import { PROPERTIES, type Property, formatSAR } from "@/data/properties";
 import { useAdmin } from "@/lib/admin-store";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
-import { CATEGORY_GROUPS, PROPERTY_CATEGORIES } from "@/lib/home-search-options";
-import { CATEGORY_LABELS, type PropertyCategoryKey } from "@/lib/property-categories";
+// import { CATEGORY_GROUPS, PROPERTY_CATEGORIES } from "@/lib/home-search-options";
+// import { CATEGORY_LABELS, type PropertyCategoryKey } from "@/lib/property-categories";
+import { CATEGORY_GROUPS } from "@/lib/home-search-options";
+import { type PropertyCategoryKey } from "@/lib/property-categories";
 import { PropertyCard } from "@/components/site/PropertyCard";
 import { SectionTitle } from "@/components/site/Layout";
 import { EnquiryForm } from "@/components/site/EnquiryForm";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+// import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { HeroDropdown, HeroPropertyType, type HeroOption } from "@/components/site/HeroSearchControls";
 import { useReveal } from "@/components/site/motion";
 import { introDone } from "@/components/site/PageTransition";
 
-type HeroOption = { value: string; label: string };
+// type HeroOption = { value: string; label: string };
 
-function withAny(options: HeroOption[] | undefined, label: string): HeroOption[] {
+// function withAny(options: HeroOption[] | undefined, label: string): HeroOption[] {
+//   const seen = new Set<string>();
+//   const uniqueOptions = (options ?? []).filter((option) => {
+//     const value = option.value.trim();
+//     if (!value || seen.has(value.toLowerCase())) return false;
+//     seen.add(value.toLowerCase());
+//     return true;
+//   });
+//   return [{ value: "", label }, ...uniqueOptions];
+// }
+
+function cleanOptions(options: HeroOption[] | undefined): HeroOption[] {
   const seen = new Set<string>();
-  const uniqueOptions = (options ?? []).filter((option) => {
+  return (options ?? []).filter((option) => {
     const value = option.value.trim();
     if (!value || seen.has(value.toLowerCase())) return false;
     seen.add(value.toLowerCase());
     return true;
   });
-  return [{ value: "", label }, ...uniqueOptions];
 }
 
 function Hero() {
   const router = useRouter();
   const [homeSearchOptions, setHomeSearchOptions] = useState<HomeSearchOptions>({ locations: [], residentialTypes: [], commercialTypes: [], bedrooms: [], budgets: [], statuses: [] });
   const stageRef = useRef<HTMLDivElement>(null);
-  const [loc, setLoc] = useState("");
+  // const [loc, setLoc] = useState("");
+  // const [type, setType] = useState("");
+  // const [category, setCategory] = useState<PropertyCategoryKey>("residential");
+  // const [budget, setBudget] = useState("");
+  // const [bedrooms, setBedrooms] = useState("");
+  // const [status, setStatus] = useState("");
+  // const [propertyTypeOpen, setPropertyTypeOpen] = useState(false);
+  // const categoryOptions = homeSearchOptions[CATEGORY_GROUPS[category]];
+
+  const [locs, setLocs] = useState<string[]>([]);
   const [type, setType] = useState("");
-  const [category, setCategory] = useState<PropertyCategoryKey>("residential");
+  const [category, setCategory] = useState<PropertyCategoryKey | undefined>(undefined);
   const [budget, setBudget] = useState("");
   const [bedrooms, setBedrooms] = useState("");
   const [status, setStatus] = useState("");
-  const [propertyTypeOpen, setPropertyTypeOpen] = useState(false);
-  const categoryOptions = homeSearchOptions[CATEGORY_GROUPS[category]];
-
+  
   useEffect(() => {
     let cancelled = false;
     fetch("/api/home-search-options", { cache: "no-store" })
@@ -71,7 +91,7 @@ function Hero() {
     return () => { cancelled = true; ctx?.revert(); };
   }, []);
 
-  const sel = "w-full truncate appearance-none bg-transparent text-sm font-medium text-foreground outline-none cursor-pointer md:text-ink-foreground [&>option]:text-foreground";
+  // const sel = "w-full truncate appearance-none bg-transparent text-sm font-medium text-foreground outline-none cursor-pointer md:text-ink-foreground [&>option]:text-foreground";
   const fs = "clamp(2.75rem, min(9.5vw, calc((100svh - 6.5rem) * 0.1377)), 11rem)";
 
   return (
@@ -100,7 +120,8 @@ function Hero() {
           onSubmit={(e) => {
             e.preventDefault();
             const params = new URLSearchParams();
-            if (loc) params.set("city", loc);
+            // if (loc) params.set("city", loc);
+            for (const city of locs) params.append("city", city);
             if (type) params.set("type", type);
             if (category) params.set("category", category);
             if (budget) params.set("budget", budget);
@@ -113,7 +134,7 @@ function Hero() {
         >
 <div className="relative z-10 grid gap-1 rounded-[1.4rem] border border-border/50 bg-cream p-2 shadow-xl shadow-ink/15 md:grid-cols-[1.05fr_0.8fr_1.1fr_1fr_minmax(10rem,1.1fr)_auto] md:items-center md:gap-0 md:rounded-full md:border-white/25 md:bg-ink/55 md:px-2.5 md:py-2 md:shadow-2xl md:backdrop-blur-xl md:backdrop-saturate-150">
 
-  {[
+  {/* {[
     { label: "Location", icon: MapPin, value: loc, set: setLoc, opts: withAny(homeSearchOptions.locations, "Any location") },
     { label: "Bedrooms", icon: BedDouble, value: bedrooms, set: setBedrooms, opts: withAny(homeSearchOptions.bedrooms, "Any bedrooms") },
     { label: "Price range (SAR)", icon: Wallet, value: budget, set: setBudget, opts: withAny(homeSearchOptions.budgets, "Any price") },
@@ -154,7 +175,7 @@ function Hero() {
     </label>
   ))}
 
-  {/* Property Type */}
+  {/* Property Type 
   <Popover open={propertyTypeOpen} onOpenChange={setPropertyTypeOpen}>
     <PopoverTrigger asChild>
       <button
@@ -217,7 +238,12 @@ function Hero() {
         ))}
       </div>
     </PopoverContent>
-  </Popover>
+  </Popover> */}
+  <HeroDropdown icon={MapPin} label="Location" noun="locations" multiple searchable searchPlaceholder="Search location…" separator={false} options={cleanOptions(homeSearchOptions.locations)} anyLabel="Any location" values={locs} onChange={setLocs} />
+  <HeroDropdown icon={BedDouble} label="Bedrooms" options={cleanOptions(homeSearchOptions.bedrooms)} anyLabel="Any bedrooms" values={bedrooms ? [bedrooms] : []} onChange={(next) => setBedrooms(next[0] ?? "")} />
+  <HeroDropdown icon={Wallet} label="Price range (SAR)" options={cleanOptions(homeSearchOptions.budgets)} anyLabel="Any price" values={budget ? [budget] : []} onChange={(next) => setBudget(next[0] ?? "")} />
+  <HeroDropdown icon={CheckCircle2} label="Property status" options={cleanOptions(homeSearchOptions.statuses)} anyLabel="Any status" values={status ? [status] : []} onChange={(next) => setStatus(next[0] ?? "")} />
+  <HeroPropertyType category={category} type={type} typesByCategory={{ residential: cleanOptions(homeSearchOptions[CATEGORY_GROUPS.residential]), commercial: cleanOptions(homeSearchOptions[CATEGORY_GROUPS.commercial]) }} onChange={(nextCategory, nextType) => { setCategory(nextCategory); setType(nextType); }} />
 
   {/* Search Button */}
   <button

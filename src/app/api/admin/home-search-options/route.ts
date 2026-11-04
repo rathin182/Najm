@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { guard } from "@/lib/admin-guard";
 import {
+  CATEGORY_GROUPS,
   HOME_SEARCH_GROUPS,
   groupHomeSearchOptions,
   validateHomeSearchOptions,
@@ -28,18 +29,25 @@ export async function GET() {
   }
 }
 
+
 export async function POST(request: Request) {
   const { error } = await guard(["ADMIN"]);
   if (error) return error;
+
   const options: unknown = await request.json().catch(() => null);
-  if (!validateHomeSearchOptions(options))
+
+  if (!validateHomeSearchOptions(options)) {
     return NextResponse.json(
       { error: "Please check each option label and value." },
       { status: 400 },
     );
+  }
 
   for (const group of HOME_SEARCH_GROUPS) {
-    const values = options[group].map((option) => option.value.trim().toLocaleLowerCase());
+    const values = options[group].map((option) =>
+      option.value.trim().toLocaleLowerCase()
+    );
+
     if (new Set(values).size !== values.length) {
       return NextResponse.json(
         { error: `The ${group} group has duplicate filter values. Each value must be unique.` },
@@ -49,54 +57,137 @@ export async function POST(request: Request) {
   }
 
   try {
-    const saved = await prisma.$transaction(async (tx) => {
-      for (const group of HOME_SEARCH_GROUPS) {
-        const existing = await tx.homeSearchOption.findMany({
-          where: { group },
-          select: { id: true, value: true },
+    const saved = await prisma.$transaction(
+      async (tx) => {
+        // Fetch existing options for all groups in one query.
+        const existingRows = await tx.homeSearchOption.findMany({
+          where: { group: { in: [...HOME_SEARCH_GROUPS] } },
+          select: { id: true, value: true, group: true },
         });
-        const submitted = options[group].map((option, position) => ({
-          ...option,
-          value: option.value.trim(),
-          label: option.label.trim(),
-          position,
-        }));
-        const submittedValues = new Set(submitted.map((option) => option.value));
-        const valuesToDelete = existing
-          .filter((row) => !submittedValues.has(row.value))
-          .map((row) => row.id);
-        if (valuesToDelete.length)
-          await tx.homeSearchOption.deleteMany({ where: { id: { in: valuesToDelete } } });
-        for (const option of submitted) {
-          await tx.homeSearchOption.upsert({
-            where: { group_value: { group, value: option.value } },
-            create: {
-              group,
-              value: option.value,
-              label: option.label,
-              position: option.position,
-              enabled: true,
-            },
-            update: { label: option.label, position: option.position, enabled: true },
+
+        for (const group of HOME_SEARCH_GROUPS) {
+          const existing = existingRows.filter(
+            (row) => row.group === group
+          );
+
+          const submitted = options[group].map((option, position) => ({
+            ...option,
+            value: option.value.trim(),
+            label: option.label.trim(),
+            position,
+          }));
+
+          const renames = submitted.flatMap((option) => {
+            const previous = option.id
+              ? existing.find((row) => row.id === option.id)
+              : undefined;
+
+            return previous && previous.value !== option.value
+              ? [{ from: previous.value, to: option.value }]
+              : [];
           });
+
+          for (const { from, to } of renames) {
+            if (group === "locations") {
+              await tx.listing.updateMany({
+                where: {
+                  city: { equals: from, mode: "insensitive" },
+                },
+                data: { city: to },
+              });
+            }
+
+            if (
+              group === CATEGORY_GROUPS.residential ||
+              group === CATEGORY_GROUPS.commercial
+            ) {
+              await tx.listing.updateMany({
+                where: {
+                  propertyType: {
+                    equals: from,
+                    mode: "insensitive",
+                  },
+                },
+                data: { propertyType: to },
+              });
+            }
+          }
+
+          // Delete removed options.
+          const submittedValues = new Set(
+            submitted.map((option) => option.value)
+          );
+
+          const valuesToDelete = existing
+            .filter((row) => !submittedValues.has(row.value))
+            .map((row) => row.id);
+
+          if (valuesToDelete.length) {
+            await tx.homeSearchOption.deleteMany({
+              where: { id: { in: valuesToDelete } },
+            });
+          }
+
+          for (const option of submitted) {
+            await tx.homeSearchOption.upsert({
+              where: {
+                group_value: {
+                  group,
+                  value: option.value,
+                },
+              },
+              create: {
+                group,
+                value: option.value,
+                label: option.label,
+                position: option.position,
+                enabled: true,
+              },
+              update: {
+                label: option.label,
+                position: option.position,
+                enabled: true,
+              },
+            });
+          }
         }
+
+        return tx.homeSearchOption.findMany({
+          where: { enabled: true },
+          orderBy: [
+            { group: "asc" },
+            { position: "asc" },
+          ],
+        });
+      },
+      {
+        maxWait: 10000,
+        timeout: 15000,
       }
-      return tx.homeSearchOption.findMany({
-        where: { enabled: true },
-        orderBy: [{ group: "asc" }, { position: "asc" }],
-      });
-    });
+    );
+
     const result = groupHomeSearchOptions(saved);
-    for (const group of HOME_SEARCH_GROUPS)
+
+    for (const group of HOME_SEARCH_GROUPS) {
       result[group] = saved
         .filter((row) => row.group === group)
         .map(({ id, value, label }) => ({ id, value, label }));
-    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+    }
+
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "no-store" },
+    });
+
   } catch (cause) {
     console.error("Save homepage search options failed:", cause);
-    return NextResponse.json({ error: databaseError(cause) }, { status: 500 });
+
+    return NextResponse.json(
+      { error: databaseError(cause) },
+      { status: 500 },
+    );
   }
 }
+
 
 export async function DELETE(request: Request) {
   const { error } = await guard(["ADMIN"]);

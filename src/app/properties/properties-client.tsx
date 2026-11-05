@@ -1,5 +1,5 @@
 "use client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SlidersHorizontal, X } from "lucide-react";
 import { BUDGETS } from "@/data/properties";
@@ -9,39 +9,48 @@ import type { Property } from "@/data/properties";
 import { PropertyCard } from "@/components/site/PropertyCard";
 import { useReveal } from "@/components/site/motion";
 import { AreaRangeFilter, MultiSelectDropdown, OptionSelectDropdown, OptionSegment, PropertyTypeFilter } from "@/components/site/PropertyFilterControls";
+import { PAGE_SIZE, normalizeQuery, toListingApiParams } from "@/lib/listing-search-params";
 
 // type Search = { city?: string; type?: string; budget?: string; beds?: string; status?: string; sort?: string };
 // type Search = { city?: string; type?: string; budget?: string; beds?: string; status?: string; sort?: string; transaction?: string; furnishing?: string; areaOp?: string; area?: string };
 type Search = { city?: string; type?: string; budget?: string; beds?: string; baths?: string; status?: string; sort?: string; transaction?: string; furnishing?: string; category?: string; areaMin?: string; areaMax?: string };
 type ListingPage = { items: Property[]; total: number; hasMore: boolean; cities: string[]; types: string[] };
-const PAGE_SIZE = 15;
+// const PAGE_SIZE = 15;
 
-function PropertiesPage() {
+function PropertiesPage({ initial }: { initial?: { query: string; data: ListingPage } }) {
   const searchParams = useSearchParams();
-  const router = useRouter();
+  // const router = useRouter();
   // const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "status", "sort"].map((key) => [key, searchParams.get(key) || undefined]));
   // const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "status", "sort", "transaction", "furnishing", "areaOp", "area"].map((key) => [key, searchParams.get(key) || undefined]));
-    const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "baths", "status", "sort", "transaction", "furnishing", "category", "areaMin", "areaMax"].map((key) => [key, searchParams.get(key) || undefined]));
+  const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "baths", "status", "sort", "transaction", "furnishing", "category", "areaMin", "areaMax"].map((key) => [key, searchParams.get(key) || undefined]));
   const selectedCities = searchParams.getAll("city");
   const queryKey = searchParams.toString();
-  const [items, setItems] = useState<Property[]>([]);
-  const [total, setTotal] = useState(0);
-  const [cities, setCities] = useState<string[]>([]);
+  // const [items, setItems] = useState<Property[]>([]);
+  const [items, setItems] = useState<Property[]>(initial?.data.items ?? []);
+  // const [total, setTotal] = useState(0);
+  const [total, setTotal] = useState(initial?.data.total ?? 0);
+  // const [cities, setCities] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>(initial?.data.cities ?? []);
   const [homeOptions, setHomeOptions] = useState<HomeSearchOptions | null>(null);
   // const [types, setTypes] = useState<string[]>([]);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initial?.data.hasMore ?? false);
+  // const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initial);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const pageRef = useRef(1);
   const requestRef = useRef(0);
+  const lastFetchedKey = useRef<string | null>(initial ? initial.query : null);
 
   const set = (k: keyof Search, v: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (search[k] === v || !v) params.delete(k); else params.set(k, v);
-    router.replace(`/properties${params.size ? `?${params}` : ""}`, { scroll: false });
+    // router.replace(`/properties${params.size ? `?${params}` : ""}`, { scroll: false });
+    window.history.replaceState(null, "", `/properties${params.size ? `?${params}` : ""}`);
+
   };
 
   // Set several URL params at once; an array value becomes repeated params (?city=A&city=B).
@@ -51,35 +60,38 @@ function PropertiesPage() {
       params.delete(key);
       for (const item of Array.isArray(value) ? value : value ? [value] : []) params.append(key, item);
     }
-    router.replace(`/properties${params.size ? `?${params}` : ""}`, { scroll: false });
+    // router.replace(`/properties${params.size ? `?${params}` : ""}`, { scroll: false });
+    window.history.replaceState(null, "", `/properties${params.size ? `?${params}` : ""}`);
   };
 
   const fetchPage = useCallback(async (page: number, append: boolean, requestId: number) => {
-    const params = new URLSearchParams(queryKey);
-    params.set("paginated", "1");
-    params.set("page", String(page));
-    params.set("pageSize", String(PAGE_SIZE));
-    if (search.budget) {
-      const [min, max] = search.budget.split("-").map(Number);
-      if (min && min > 0) params.set("minPrice", String(min));
-      if (max && max < 999999999) params.set("maxPrice", String(max));
-      params.delete("budget");
-    }
-    if (search.beds) {
-      if (search.beds === "0") params.set("studio", "1");
-      else params.set("minBeds", search.beds);
-      params.delete("beds");
-    }
-    if (search.baths) {
-      params.set("minBaths", search.baths);
-      params.delete("baths");
-    }
-    // if (search.status) { params.set("readiness", search.status === "Off-plan" ? "off-plan" : "ready"); params.delete("status"); }
-    if (search.status) { params.set("readiness", search.status.toLowerCase() === "off-plan" ? "off-plan" : "ready"); params.delete("status"); }
-    if (search.sort) {
-      params.set("sort", search.sort === "low" ? "price-low" : search.sort === "high" ? "price-high" : search.sort === "area" ? "size-large" : search.sort);
-    }
-    const response = await fetch(`/api/listings?${params.toString()}`, { cache: "no-store" });
+    // const params = new URLSearchParams(queryKey);
+    // params.set("paginated", "1");
+    // params.set("page", String(page));
+    // params.set("pageSize", String(PAGE_SIZE));
+    // if (search.budget) {
+    //   const [min, max] = search.budget.split("-").map(Number);
+    //   if (min && min > 0) params.set("minPrice", String(min));
+    //   if (max && max < 999999999) params.set("maxPrice", String(max));
+    //   params.delete("budget");
+    // }
+    // if (search.beds) {
+    //   if (search.beds === "0") params.set("studio", "1");
+    //   else params.set("minBeds", search.beds);
+    //   params.delete("beds");
+    // }
+    // if (search.baths) {
+    //   params.set("minBaths", search.baths);
+    //   params.delete("baths");
+    // }
+    // // if (search.status) { params.set("readiness", search.status === "Off-plan" ? "off-plan" : "ready"); params.delete("status"); }
+    // if (search.status) { params.set("readiness", search.status.toLowerCase() === "off-plan" ? "off-plan" : "ready"); params.delete("status"); }
+    // if (search.sort) {
+    //   params.set("sort", search.sort === "low" ? "price-low" : search.sort === "high" ? "price-high" : search.sort === "area" ? "size-large" : search.sort);
+    // }
+    const params = toListingApiParams(queryKey, page);
+    // const response = await fetch(`/api/listings?${params.toString()}`, { cache: "no-store" });
+    const response = await fetch(`/api/listings?${params.toString()}`);
     if (!response.ok) throw new Error("Properties could not be loaded. Please try again.");
     const data = await response.json() as ListingPage;
     if (requestId !== requestRef.current) return;
@@ -89,9 +101,12 @@ function PropertiesPage() {
     setCities(data.cities);
     // setTypes(data.types);
     pageRef.current = page;
-  }, [queryKey, search.budget, search.beds, search.baths, search.status, search.sort]);
+  }, [queryKey]);
 
   useEffect(() => {
+    const key = normalizeQuery(queryKey);
+    if (lastFetchedKey.current === key) return; // server already rendered this exact result
+    lastFetchedKey.current = key;
     const requestId = ++requestRef.current;
     pageRef.current = 1;
     setLoading(true);
@@ -158,7 +173,8 @@ function PropertiesPage() {
         <div className="mt-10 grid gap-8 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-10">
           <aside data-lenis-prevent className={`${mobileOpen ? "fixed inset-0 z-[60] overflow-y-auto bg-background p-4" : "hidden"} lg:sticky lg:top-28 lg:block lg:h-[calc(100dvh-8rem)] lg:max-h-[calc(100dvh-8rem)] lg:self-start lg:overflow-y-auto lg:overscroll-y-contain scrollbar-hidden lg:pr-1`}>
             <div className="rounded-[1.75rem] bg-cream p-2.5 text-foreground">
-              <div className="flex items-center justify-between px-3 pb-1 pt-3"><p className="font-sans text-lg font-semibold tracking-tight">Filters</p><div className="flex items-center gap-3">{hasFilters && <button onClick={() => router.replace("/properties", { scroll: false })} className="text-xs text-primary hover:underline">Clear all</button>}<button onClick={() => setMobileOpen(false)} className="lg:hidden" aria-label="Close filters"><X className="h-5 w-5" /></button></div></div>
+              {/* <div className="flex items-center justify-between px-3 pb-1 pt-3"><p className="font-sans text-lg font-semibold tracking-tight">Filters</p><div className="flex items-center gap-3">{hasFilters && <button onClick={() => router.replace("/properties", { scroll: false })} className="text-xs text-primary hover:underline">Clear all</button>}<button onClick={() => setMobileOpen(false)} className="lg:hidden" aria-label="Close filters"><X className="h-5 w-5" /></button></div></div> */}
+              <div className="flex items-center justify-between px-3 pb-1 pt-3"><p className="font-sans text-lg font-semibold tracking-tight">Filters</p><div className="flex items-center gap-3">{hasFilters && <button onClick={() => window.history.replaceState(null, "", "/properties")} className="text-xs text-primary hover:underline">Clear all</button>}<button onClick={() => setMobileOpen(false)} className="lg:hidden" aria-label="Close filters"><X className="h-5 w-5" /></button></div></div>
               {/* <Panel title="Location"><div className="flex flex-col">{cityOptions.map((city) => <button key={city} onClick={() => set("city", city)} className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${search.city === city ? "bg-primary text-primary-foreground" : "hover:bg-cream"}`}>{city}<span className={search.city === city ? "opacity-80" : "text-muted-foreground"} /></button>)}</div></Panel> */}
               <Panel title="Location"><div className="px-1 pb-1"><MultiSelectDropdown options={cityOptions} selected={selectedCities} onChange={(next) => update({ city: next })} placeholder="All locations" noun="locations" /></div></Panel>
               {/* <Panel title="Property type"><div className="grid grid-cols-2 gap-2">{typeOptions.map((type) => <Chip key={type} active={search.type?.toLowerCase() === type.toLowerCase()} onClick={() => set("type", type)}>{type}</Chip>)}</div></Panel> */}

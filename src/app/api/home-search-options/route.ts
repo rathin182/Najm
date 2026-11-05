@@ -28,7 +28,7 @@ export async function GET() {
     known.add(name.toLowerCase());
     options.locations.push({ value: name, label: name });
   }
-  return NextResponse.json(groupHomeSearchOptions(rows), {
+  return NextResponse.json(options, {
     headers: { "Cache-Control": "no-store" },
   });
 }

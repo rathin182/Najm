@@ -64,7 +64,8 @@ function Detail() {
   }, [id]);
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/listings?paginated=1&page=1&pageSize=3", { cache: "no-store" })
+    // void fetch("/api/listings?paginated=1&page=1&pageSize=3", { cache: "no-store" })
+    void fetch("/api/listings?paginated=1&page=1&pageSize=3")
       .then(async (response) => response.ok ? response.json() as Promise<{ items: Property[] }> : { items: [] })
       .then((data) => { if (!cancelled) setRelated(data.items); })
       .catch(() => {});

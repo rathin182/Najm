@@ -7,7 +7,7 @@ const hero = '/images/hero2.jpg';
 const heroCut = '/images/hero2-cut.png';
 import { GigaProjects, WhyNajm } from "@/components/site/HomeSections";
 import { type Property, formatSAR } from "@/data/properties";
-import { useAdmin, type AdminProperty } from "@/lib/admin-store";
+import type { AdminProperty } from "@/lib/admin-store";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
 // import { CATEGORY_GROUPS, PROPERTY_CATEGORIES } from "@/lib/home-search-options";
 // import { CATEGORY_LABELS, type PropertyCategoryKey } from "@/lib/property-categories";
@@ -329,23 +329,45 @@ function Home() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/listings", { cache: "no-store" })
+
+    fetch("/api/listings/explore")
       .then(async (response) => {
         if (!response.ok) throw new Error("Could not load listings.");
         return response.json() as Promise<Property[]>;
       })
       .then((listings) => {
-        if (cancelled || !Array.isArray(listings)) return;
-        const randomListings = [...listings];
-        for (let i = randomListings.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [randomListings[i], randomListings[j]] = [randomListings[j]!, randomListings[i]!];
+        if (!cancelled && Array.isArray(listings)) {
+          setOtherProperties(listings);
         }
-        setOtherProperties(randomListings.slice(0, 4));
       })
-      .catch((error) => console.error("Other homepage properties could not be loaded", error));
-    return () => { cancelled = true; };
+      .catch((error) =>
+        console.error("Other homepage properties could not be loaded", error)
+      );
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   fetch("/api/listings", { cache: "no-store" })
+  //     .then(async (response) => {
+  //       if (!response.ok) throw new Error("Could not load listings.");
+  //       return response.json() as Promise<Property[]>;
+  //     })
+  //     .then((listings) => {
+  //       if (cancelled || !Array.isArray(listings)) return;
+  //       const randomListings = [...listings];
+  //       for (let i = randomListings.length - 1; i > 0; i--) {
+  //         const j = Math.floor(Math.random() * (i + 1));
+  //         [randomListings[i], randomListings[j]] = [randomListings[j]!, randomListings[i]!];
+  //       }
+  //       setOtherProperties(randomListings.slice(0, 4));
+  //     })
+  //     .catch((error) => console.error("Other homepage properties could not be loaded", error));
+  //   return () => { cancelled = true; };
+  // }, []);
 
   useEffect(() => {
     let cancelled = false;

@@ -1,28 +1,51 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
-/** Fade/slide in every [data-reveal] element as it enters the viewport. */
+/** Fade/slide in reveal elements, initializing only nodes added since the last scan. */
 export function useReveal(deps: unknown[] = []) {
+  const initialized = useRef(new WeakSet<HTMLElement>());
   useEffect(() => {
-    let ctx: { revert: () => void } | undefined;
+    let ctx: { add: (callback: () => void) => void; revert: () => void } | undefined;
     let cancelled = false;
+    let observer: MutationObserver | undefined;
     (async () => {
       const { gsap } = await import("gsap");
       const { ScrollTrigger } = await import("gsap/ScrollTrigger");
       if (cancelled) return;
       gsap.registerPlugin(ScrollTrigger);
-      ctx = gsap.context(() => {
-        gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
-          gsap.fromTo(
-            el,
-            { y: 60, opacity: 0 },
-            { y: 0, opacity: 1, duration: 1.1, ease: "power3.out", clearProps: "transform,opacity", scrollTrigger: { trigger: el, start: "top 90%" } },
-          );
+      const initialize = (nodes: Iterable<HTMLElement>) => {
+        const pending = Array.from(nodes).filter((el) => !initialized.current.has(el));
+        if (!pending.length || cancelled) return;
+        ctx ??= gsap.context(() => {});
+        ctx.add(() => {
+          pending.forEach((el) => {
+            initialized.current.add(el);
+            gsap.fromTo(
+              el,
+              { y: 60, opacity: 0 },
+              { y: 0, opacity: 1, duration: 1.1, ease: "power3.out", clearProps: "transform,opacity", scrollTrigger: { trigger: el, start: "top 90%" } },
+            );
+          });
         });
+        // Refresh only the triggers just added, rather than recalculating every
+        // ScrollTrigger on the page after each filter or pagination update.
+        ScrollTrigger.refresh(true);
+      };
+      const scan = (root: ParentNode) => {
+        const matches = Array.from(root.querySelectorAll<HTMLElement>("[data-reveal]"));
+        if (root instanceof HTMLElement && root.matches("[data-reveal]")) matches.unshift(root);
+        initialize(matches);
+      };
+      scan(document);
+      observer = new MutationObserver((records) => {
+        records.forEach((record) => record.addedNodes.forEach((node) => {
+          if (node instanceof HTMLElement) scan(node);
+        }));
       });
-      ScrollTrigger.refresh();
+      observer.observe(document.body, { childList: true, subtree: true });
     })();
     return () => {
       cancelled = true;
+      observer?.disconnect();
       ctx?.revert();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

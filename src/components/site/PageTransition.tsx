@@ -42,12 +42,16 @@ export function PageTransition() {
     (async () => {
       const { gsap } = await import("gsap");
       if (cancelled) return;
-      const ready = new Promise<void>((r) => (document.readyState === "complete" ? r() : window.addEventListener("load", () => r(), { once: true })));
       const c = { v: 0 };
-      await Promise.all([
-        new Promise<void>((r) => gsap.to(c, { v: 100, duration: 1.4, ease: "power2.inOut", onUpdate: () => setCount(Math.round(c.v)), onComplete: r })),
-        Promise.race([ready, new Promise((r) => setTimeout(r, 4000))]),
-      ]);
+      // Keep the counter as a short visual cue, but don't gate the app on
+      // window.load: that event waits for every image and other page resource.
+      await new Promise<void>((r) => gsap.to(c, {
+        v: 100,
+        duration: 0.8,
+        ease: "power2.inOut",
+        onUpdate: () => setCount(Math.round(c.v)),
+        onComplete: r,
+      }));
       if (cancelled) return;
       await new Promise<void>((r) => gsap.timeline({ onComplete: r })
         .to(text()!, { yPercent: -120, opacity: 0, duration: 0.5, ease: "power3.in" })

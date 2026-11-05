@@ -54,8 +54,8 @@ export function Nav() {
         <div className="relative z-10 hidden items-center gap-1 md:flex">
           <Link href="/" className={`${link} ${pathname === "/" ? "bg-background/70" : ""}`}>Home</Link>
           <Link href="/properties" className={`${link} ${pathname.startsWith("/properties") ? "bg-background/70" : ""}`}>Properties</Link>
-          <a href="/#vault" className={link}>Invest</a>
-          <a href="/#projects" className={link}>Giga Projects</a>
+          {/* <a href="/#vault" className={link}>Invest</a> */}
+          {/* <a href="/#projects" className={link}>Giga Projects</a> */}
           <Link href="/knowledge" className={`${link} ${pathname === "/knowledge" ? "bg-background/70" : ""}`}>Knowledge Hub</Link>
           <Link href="/about" className={`${link} ${pathname === "/about" ? "bg-background/70" : ""}`}>About</Link>
           <Link href="/contact" className={`${link} ${pathname === "/contact" ? "bg-background/70" : ""}`}>Contact</Link>

@@ -74,7 +74,7 @@ function WhyNajmEditor() {
             title="Stats"
             where="Green banner, the row of big numbers below the intro."
             action={form.stats.length < WHY_NAJM_LIMITS.stats && (
-              <button type="button" onClick={() => set("stats", [...form.stats, { value: "", label: "" }])} className="flex items-center gap-1 rounded-full bg-cream px-4 py-2 text-sm"><Plus className="h-4 w-4" />Add stat</button>
+              <button type="button" onClick={() => set("stats", [{ value: "", label: "" }, ...form.stats])} className="flex items-center gap-1 rounded-full bg-cream px-4 py-2 text-sm"><Plus className="h-4 w-4" />Add stat</button>
             )}
           />
           {form.stats.length === 0 && <p className="text-sm text-muted-foreground">No stats — the stats row will be hidden.</p>}

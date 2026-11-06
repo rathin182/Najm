@@ -196,7 +196,8 @@ export function WhyNajm() {
             <div className="mt-16 grid gap-x-10 gap-y-10 md:grid-cols-2 lg:grid-cols-4">
               {s.stats.map((stat, i) => (
                 <div key={`${stat.label}-${i}`} data-reveal>
-                  <p className="display-lg">{stat.value}</p>
+                  {/* <p className="display-lg">{stat.value}</p> */}
+                  <p className="whitespace-nowrap text-[clamp(1.75rem,3.2vw,3rem)] font-medium leading-none tracking-tight">{stat.value}</p>
                   <p className="mt-3 text-lg opacity-75">{stat.label}</p>
                 </div>
               ))}

@@ -22,7 +22,13 @@ export function toListingApiParams(query: string, page: number, pageSize = PAGE_
     const status = params.get("status");
     if (status) { params.set("readiness", status.toLowerCase() === "off-plan" ? "off-plan" : "ready"); params.delete("status"); }
     const sort = params.get("sort");
-    if (sort) params.set("sort", sort === "low" ? "price-low" : sort === "high" ? "price-high" : sort === "area" ? "size-large" : sort);
+    const dir = params.get("dir");
+    params.delete("dir");
+    if (sort === "low") params.set("sort", "price-low");
+    else if (sort === "high") params.set("sort", "price-high");
+    else if (sort === "price") params.set("sort", dir === "desc" ? "price-high" : "price-low");
+    else if (sort === "area") params.set("sort", dir === "asc" ? "size-small" : "size-large");
+    else if (!sort && dir === "asc") params.set("sort", "oldest");
     return params;
 }
 

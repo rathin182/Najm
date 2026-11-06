@@ -6,7 +6,7 @@ import { useAdmin } from "@/lib/admin-store";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
 import { Field, RowTools, SectionHeading, move } from "@/components/admin/EditorParts";
 import { DEFAULT_WHY_NAJM, WHY_NAJM_ICON_KEYS, WHY_NAJM_LIMITS, type WhyNajmPillar, type WhyNajmSettingsData } from "@/lib/why-najm";
-
+import { WHY_NAJM_ICONS } from "@/lib/why-najm-icons";
 type PromisesForm = Pick<WhyNajmSettingsData, "pillarsTitle" | "pillarsAccent" | "pillars">;
 
 const DEFAULTS: PromisesForm = {
@@ -71,7 +71,7 @@ function PromisesEditor() {
             title="Promises"
             where="Cream section with the icon cards, including its own title."
             action={form.pillars.length < WHY_NAJM_LIMITS.pillars && (
-              <button type="button" onClick={() => set("pillars", [...form.pillars, { icon: "BadgeCheck", title: "", description: "" }])} className="flex items-center gap-1 rounded-full bg-cream px-4 py-2 text-sm"><Plus className="h-4 w-4" />Add promise</button>
+              <button type="button" onClick={() => set("pillars", [{ icon: "BadgeCheck", title: "", description: "" }, ...form.pillars])} className="flex items-center gap-1 rounded-full bg-cream px-4 py-2 text-sm"><Plus className="h-4 w-4" />Add promise</button>
             )}
           />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -82,10 +82,20 @@ function PromisesEditor() {
           {form.pillars.map((p, i) => (
             <div key={i} className={card}>
               <div className="grid gap-3 sm:grid-cols-[12rem_1fr_auto] sm:items-end">
-                <Field label="Icon">
+                {/* <Field label="Icon">
                   <select className={inner} value={p.icon} onChange={(e) => patchPillar(i, { icon: e.target.value as WhyNajmPillar["icon"] })}>
                     {WHY_NAJM_ICON_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
                   </select>
+                </Field> */}
+                <Field label="Icon">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                      {(() => { const Icon = WHY_NAJM_ICONS[p.icon] ?? WHY_NAJM_ICONS.BadgeCheck; return <Icon className="h-5 w-5" />; })()}
+                    </span>
+                    <select className={inner} value={p.icon} onChange={(e) => patchPillar(i, { icon: e.target.value as WhyNajmPillar["icon"] })}>
+                      {WHY_NAJM_ICON_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                  </div>
                 </Field>
                 <Field label="Title"><input className={inner} required value={p.title} onChange={(e) => patchPillar(i, { title: e.target.value })} maxLength={80} /></Field>
                 <RowTools i={i} count={form.pillars.length} onMove={(d) => set("pillars", move(form.pillars, i, d))} onRemove={() => set("pillars", form.pillars.filter((_, idx) => idx !== i))} />

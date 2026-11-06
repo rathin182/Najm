@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       listingId: listing?.id ?? null,
       senderId: session?.user?.id ?? null,
       name: data.name,
-      email: data.email || session?.user?.email || "not-provided@guest.local",
+      email: (data.email || session?.user?.email || "not-provided@guest.local").toLowerCase(),
       phone: data.phone,
       message: data.message || `Private ${data.source === "home-modal" ? "tour & floorplans" : "dossier"} request`,
       investorType: data.investorType || null,

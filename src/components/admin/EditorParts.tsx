@@ -1,5 +1,5 @@
 "use client";
-import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Trash2 } from "lucide-react";
 
 export function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -42,6 +42,17 @@ export function RowTools({ i, count, onMove, onRemove }: { i: number; count: num
       <button type="button" aria-label="Move up" disabled={i === 0} onClick={() => onMove(-1)} className={btn}><ArrowUp className="h-4 w-4" /></button>
       <button type="button" aria-label="Move down" disabled={i === count - 1} onClick={() => onMove(1)} className={btn}><ArrowDown className="h-4 w-4" /></button>
       <button type="button" aria-label="Remove" onClick={onRemove} className={`${btn} text-destructive`}><Trash2 className="h-4 w-4" /></button>
+    </div>
+  );
+}
+
+export function SavingOverlay({ label }: { label: string }) {
+  return (
+    <div role="status" aria-live="polite" className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+      <div className="flex items-center gap-3 rounded-full bg-cream px-6 py-4 shadow-lg">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <span className="font-medium">{label}</span>
+      </div>
     </div>
   );
 }

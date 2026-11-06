@@ -53,9 +53,8 @@ function Dashboard() {
         .catch(() => {});
     };
     refresh();
-    const interval = window.setInterval(refresh, 30_000);
-    window.addEventListener("focus", refresh);
-    return () => { cancelled = true; window.clearInterval(interval); window.removeEventListener("focus", refresh); };
+    const interval = window.setInterval(refresh, 60_000);
+    return () => { cancelled = true; window.clearInterval(interval);};
   }, []);
 
   const stats = useMemo(() => {
@@ -206,7 +205,7 @@ function Dashboard() {
         </Panel>
         <Panel>
           <p className="text-xl font-medium">Listings by city</p>
-          <div className="mt-4 h-56">
+          <div className="mt-4 h-40">
             <ResponsiveContainer width="100%" height="100%">
               {/* Smaller category gap (5%) and zero side margins so bars are thicker with only a slight gap */}
               <BarChart data={byCity} margin={{ top: 16, right: 0, left: 0, bottom: 0 }} barCategoryGap="5%">
@@ -219,9 +218,10 @@ function Dashboard() {
                   tickMargin={12} 
                   tickFormatter={(value) => value.length > 8 ? `${value.substring(0, 8)}...` : value}
                 />
-                <YAxis hide allowDecimals={false} />
-                <Tooltip cursor={{ fill: "var(--cream)" }} contentStyle={{ borderRadius: 16, border: "none" }} formatter={(v) => [Number(v).toLocaleString("en"), "Views"]} />
-                <Bar dataKey="value" fill="var(--primary)" radius={[12, 12, 0, 0]} minPointSize={18} />
+                {/* <YAxis hide allowDecimals={false} /> */}
+                <YAxis hide allowDecimals={false} domain={[0, (max: number) => Math.max(2, Math.ceil(max * 1.8))]} />
+                <Tooltip cursor={{ fill: "var(--cream)" }} contentStyle={{ borderRadius: 16, border: "none" }} formatter={(v) => [Number(v).toLocaleString("en"), "Listings"]} />
+                <Bar dataKey="value" fill="var(--primary)" radius={[12, 12, 0, 0]} minPointSize={8} />
               </BarChart>
             </ResponsiveContainer>
           </div>

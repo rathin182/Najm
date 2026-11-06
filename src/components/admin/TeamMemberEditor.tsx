@@ -4,6 +4,7 @@ import { ImagePlus, Upload } from "lucide-react";
 import { toast } from "sonner";
 import type { TeamMemberDraft } from "@/lib/team";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
+import { SavingOverlay } from "@/components/admin/EditorParts";
 
 type Props = {
   member: TeamMemberDraft;
@@ -66,6 +67,7 @@ export function TeamMemberEditor({ member, busy, onClose, onSave }: Props) {
         if (!open && !busy && !uploading) onClose();
       }}
     >
+      {(busy || uploading) && <SavingOverlay label={uploading ? "Uploading portrait…" : form.id ? "Saving changes…" : "Adding member…"} />}
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-[1.5rem]">
         <DialogHeader>
           <DialogTitle className="text-2xl">

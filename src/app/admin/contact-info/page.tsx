@@ -123,7 +123,7 @@ function ContactInfoEditor() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-medium">Office cards</h2>
               {form.offices.length < 6 && (
-                <button type="button" onClick={() => set("offices", [...form.offices, { city: "", address: "" }])} className="flex items-center gap-1 rounded-full bg-cream px-4 py-2 text-sm"><Plus className="h-4 w-4" />Add office</button>
+                <button type="button" onClick={() => set("offices", [{ city: "", address: "" }, ...form.offices])} className="flex items-center gap-1 rounded-full bg-cream px-4 py-2 text-sm"><Plus className="h-4 w-4" />Add office</button>
               )}
             </div>
             {form.offices.length === 0 && <p className="text-sm text-muted-foreground">No offices — the cards will be hidden.</p>}

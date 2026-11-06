@@ -49,7 +49,7 @@ function Contacts() {
   }, [load]);
 
   const list = useMemo(
-    () => contacts.filter((c) => (!type || c.type === type) && `${c.name} ${c.email} ${c.phone ?? ""} ${c.city}`.toLowerCase().includes(q.toLowerCase())),
+    () => contacts.filter((c) => (!type || c.type === type) && `${c.name} ${c.email} ${c.phone ?? ""} ${c.city} ${c.property ?? ""}`.toLowerCase().includes(q.toLowerCase())),
     [contacts, q, type],
   );
 
@@ -85,7 +85,7 @@ function Contacts() {
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error ?? "Could not save contact.");
       const saved = body as ApiContact;
-      setContacts((prev) => (draft.id ? prev.map((c) => (c.id === saved.id ? saved : c)) : [saved, ...prev]));
+      setContacts((prev) => (draft.id ? prev.map((c) => (c.id === saved.id ? {...c, ...saved} : c)) : [saved, ...prev]));
       setEdit(null);
       toast.success("Contact saved");
     } catch (e) {
@@ -126,8 +126,8 @@ function Contacts() {
         </select>
       </div>
       <Panel className="overflow-x-auto !p-2">
-        <table className="w-full min-w-[720px] text-left">
-          <thead className="text-sm text-muted-foreground"><tr><th className="p-4 font-normal">Name</th><th className="p-4 font-normal">Phone</th><th className="p-4 font-normal">Type</th><th className="p-4 font-normal">City</th><th className="p-4 font-normal">Added</th><th /></tr></thead>
+        <table className="w-full min-w-[900px] text-left">
+          <thead className="text-sm text-muted-foreground"><tr><th className="p-4 font-normal">Name</th><th className="p-4 font-normal">Phone</th><th className="p-4 font-normal">Type</th><th className="p-4 font-normal">City</th><th className="p-4 font-normal">Property</th><th className="p-4 font-normal">Added</th><th /></tr></thead>
           <tbody>
             {list.map((c) => (
               <tr key={c.id} className="transition-colors hover:bg-cream/60">
@@ -135,6 +135,7 @@ function Contacts() {
                 <td className="p-4">{c.phone ?? "—"}</td>
                 <td className="p-4">{CONTACT_LABEL[c.type]}</td>
                 <td className="p-4">{c.city}</td>
+                <td className="max-w-[16rem] p-4"><span className="line-clamp-2" title={c.property ?? ""}>{c.property ?? "—"}</span></td>
                 <td className="p-4 text-sm text-muted-foreground">{fmtDate(c.createdAt)}</td>
                 <td className="rounded-r-2xl p-4 text-right">
                   {can.edit && <button aria-label="Edit" onClick={() => openEdit(c)} className="rounded-full p-2 hover:bg-cream"><Pencil className="h-4 w-4" /></button>}

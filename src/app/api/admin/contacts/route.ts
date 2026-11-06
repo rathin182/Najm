@@ -16,11 +16,34 @@ const createSchema = z.object({
   notes: z.string().trim().max(2000).default(""),
 });
 
+// export async function GET() {
+//   const { error } = await guard(["ADMIN"]);
+//   if (error) return error;
+//   const items = await prisma.contact.findMany({ orderBy: { createdAt: "desc" }, take: 1000, select });
+//   return NextResponse.json({ items: items.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })) });
+// }
 export async function GET() {
   const { error } = await guard(["ADMIN"]);
   if (error) return error;
   const items = await prisma.contact.findMany({ orderBy: { createdAt: "desc" }, take: 1000, select });
-  return NextResponse.json({ items: items.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })) });
+  const enquiries = await prisma.enquiry.findMany({
+    where: {
+      email: { in: items.map((c) => c.email) },
+      OR: [{ listingId: { not: null } }, { propertyTitle: { not: null } }],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 5000,
+    select: { email: true, propertyTitle: true, listing: { select: { title: true } } },
+  });
+  const propertyByEmail = new Map<string, string>();
+  for (const e of enquiries) {
+    const title = e.listing?.title ?? e.propertyTitle;
+    const key = e.email.trim().toLowerCase();
+    if (title && title !== "General enquiry" && !propertyByEmail.has(key)) propertyByEmail.set(key, title);
+  }
+  return NextResponse.json({
+    items: items.map((c) => ({ ...c, property: propertyByEmail.get(c.email.toLowerCase()) ?? null, createdAt: c.createdAt.toISOString() })),
+  });
 }
 
 export async function POST(request: Request) {

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { auth } from "@/lib/auth";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 
@@ -43,10 +44,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "Use a valid JPEG, PNG, WebP, MP4, MOV, WebM or Ogg file." }, { status: 400 });
   }
 
-  const filename = `${crypto.randomUUID()}.${mediaType.extension}`;
+  let output: Buffer = bytes;
+  let extension = mediaType.extension;
+  if (!isVideo) {
+    output = await sharp(bytes).rotate().resize({ width: 1600, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer();
+    extension = "webp";
+  }
+  const filename = `${crypto.randomUUID()}.${extension}`;
   const uploadDirectory = join(process.cwd(), "public", "properties", "uploads");
   await mkdir(uploadDirectory, { recursive: true });
-  await writeFile(join(uploadDirectory, filename), bytes, { flag: "wx" });
+  await writeFile(join(uploadDirectory, filename), output, { flag: "wx" });
 
   return Response.json({ url: `/properties/uploads/${filename}`, kind: isVideo ? "video" : "image" });
 }

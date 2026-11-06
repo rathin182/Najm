@@ -11,6 +11,7 @@ import { newId, useAdmin, type AdminProperty, type Pair, type PropertyExtra } fr
 import { CATEGORY_TYPES } from "@/lib/property-categories";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
 import { CATEGORY_GROUPS } from "@/lib/home-search-options";
+import { SavingOverlay } from "@/components/admin/EditorParts";
 
 export function blankProperty(): AdminProperty {
   return {
@@ -59,6 +60,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const [categoryTypes, setCategoryTypes] = useState<{ Commercial: string[]; Residential: string[] }>({ Commercial: [...EDITOR_CATEGORY_TYPES.Commercial], Residential: [...EDITOR_CATEGORY_TYPES.Residential] });
   const [x, setX] = useState<PropertyExtra>(() => extraFor(initial));
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState("Saving changes…");
   const [bathrooms, setBathrooms] = useState<Pair[]>(() => (Array.isArray((initial.details as { bathrooms?: Pair[] } | undefined)?.bathrooms) ? (initial.details as { bathrooms: Pair[] }).bathrooms : null) ?? Array.from({ length: initial.baths || 0 }, () => ["Bathroom", ""] as Pair));
   useEffect(() => {
     let cancelled = false;
@@ -77,12 +79,14 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   useEffect(() => {
     if (properties.some((property) => property.id === initial.id) || !initial.title) return;
     let cancelled = false;
-    fetch("/api/admin/listings", { credentials: "include" }).then(async (response) => {
+    fetch(`/api/admin/listings/${encodeURIComponent(initial.id)}`, { credentials: "include" }).then(async (response) => {
       if (!response.ok) throw new Error("Could not load listing details.");
-      return response.json() as Promise<AdminProperty[]>;
-    }).then((listings) => {
-      const listing = listings.find((item) => item.id === initial.id);
-      if (!cancelled && listing) { setP(listing); setX(extraFor(listing)); setBathrooms(Array.isArray((listing.details as { bathrooms?: Pair[] } | undefined)?.bathrooms) ? (listing.details as { bathrooms: Pair[] }).bathrooms : []); setLoadedFromApi(true); }
+      return response.json() as Promise<AdminProperty>;
+    }).then((listing) => {
+      if (cancelled) return;
+      setP(listing); setX(extraFor(listing));
+      setBathrooms(Array.isArray((listing.details as { bathrooms?: Pair[] } | undefined)?.bathrooms) ? (listing.details as { bathrooms: Pair[] }).bathrooms : []);
+      setLoadedFromApi(true);
     }).catch(() => toast.error("Could not load the saved property."));
     return () => { cancelled = true; };
   }, [initial.id, initial.title, properties]);
@@ -93,6 +97,8 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
     const missing = [!p.title.trim() && "title", !p.district.trim() && "district", p.price <= 0 && "price", p.area <= 0 && "area", p.images.length === 0 && "a photo", p.investment && !((p.investment.yield ?? 0) > 0) && "gross yield (investment)", p.investment && !((x.annualRent ?? 0) > 0) && "estimated annual rent (investment)"].filter(Boolean);
     if (missing.length) { toast.error(`Please add ${missing.join(", ")}`); return; }
     const clean = (l: Pair[]) => l.filter(([a, b]) => a.trim() || b.trim());
+    let navigating = false;
+    setBusyLabel(isNew ? "Creating property…" : "Saving changes…");
     setBusy(true);
     try {
       const property = { ...p, description: p.description || p.short, details: { ...x, annualRent: p.investment ? x.annualRent : undefined, priceGrowth5yr: p.investment ? x.priceGrowth5yr : undefined, rooms: clean(x.rooms), nearby: clean(x.nearby), plan: clean(x.plan), bathrooms: clean(bathrooms) } };
@@ -101,12 +107,13 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
       if (!response.ok) throw new Error(result.error ?? "Could not save property.");
       saveProperty(result as AdminProperty);
       toast.success(isNew ? "Property added" : "Changes saved");
-      router.push("/admin/properties");
+      navigating = true; router.push("/admin/properties");
     } catch (error) { toast.error(error instanceof Error ? error.message : "Could not save property."); }
-    finally { setBusy(false); }
+    finally { if(!navigating) setBusy(false); }
   };
 
   const uploadFiles = async (files: File[], expectedKind: "image" | "video") => {
+    setBusyLabel(expectedKind === "image" ? "Uploading photos…" : "Uploading video…");
     setBusy(true);
     try {
       const uploaded = await Promise.all(files.map(async (file) => {
@@ -126,6 +133,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
 
   return (
     <div>
+      {busy && <SavingOverlay label={busyLabel} />}
       <div className="mb-8 flex flex-wrap items-center gap-4">
         <Link href="/admin/properties" className="flex h-11 w-11 items-center justify-center rounded-full bg-background hover:bg-cream" aria-label="Back"><ArrowLeft className="h-5 w-5" /></Link>
         <div className="mr-auto">

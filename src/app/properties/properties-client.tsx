@@ -1,7 +1,7 @@
 "use client";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SlidersHorizontal, X } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpNarrowWide ,SlidersHorizontal, X } from "lucide-react";
 import { BUDGETS } from "@/data/properties";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
 import { CATEGORY_GROUPS } from "@/lib/home-search-options";
@@ -13,7 +13,7 @@ import { PAGE_SIZE, normalizeQuery, toListingApiParams } from "@/lib/listing-sea
 
 // type Search = { city?: string; type?: string; budget?: string; beds?: string; status?: string; sort?: string };
 // type Search = { city?: string; type?: string; budget?: string; beds?: string; status?: string; sort?: string; transaction?: string; furnishing?: string; areaOp?: string; area?: string };
-type Search = { city?: string; type?: string; budget?: string; beds?: string; baths?: string; status?: string; sort?: string; transaction?: string; furnishing?: string; category?: string; areaMin?: string; areaMax?: string };
+type Search = { city?: string; type?: string; budget?: string; beds?: string; baths?: string; status?: string; sort?: string; transaction?: string; furnishing?: string; category?: string; areaMin?: string; areaMax?: string; dir?: string;};
 type ListingPage = { items: Property[]; total: number; hasMore: boolean; cities: string[]; types: string[] };
 // const PAGE_SIZE = 15;
 
@@ -22,7 +22,7 @@ function PropertiesPage({ initial }: { initial?: { query: string; data: ListingP
   // const router = useRouter();
   // const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "status", "sort"].map((key) => [key, searchParams.get(key) || undefined]));
   // const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "status", "sort", "transaction", "furnishing", "areaOp", "area"].map((key) => [key, searchParams.get(key) || undefined]));
-  const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "baths", "status", "sort", "transaction", "furnishing", "category", "areaMin", "areaMax"].map((key) => [key, searchParams.get(key) || undefined]));
+  const search: Search = Object.fromEntries(["city", "type", "budget", "beds", "baths", "status", "sort", "transaction", "furnishing", "category", "areaMin", "areaMax", "dir"].map((key) => [key, searchParams.get(key) || undefined]));
   const selectedCities = searchParams.getAll("city");
   const queryKey = searchParams.toString();
   // const [items, setItems] = useState<Property[]>([]);
@@ -40,6 +40,7 @@ function PropertiesPage({ initial }: { initial?: { query: string; data: ListingP
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [recommended, setRecommended] = useState<Property[]>([]);
   const sentinel = useRef<HTMLDivElement>(null);
   const pageRef = useRef(1);
   const requestRef = useRef(0);
@@ -126,6 +127,24 @@ function PropertiesPage({ initial }: { initial?: { query: string; data: ListingP
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
+  const showEmpty = !loading && !error && items.length === 0;
+  useEffect(() => {
+    if (!showEmpty || recommended.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        let list: Property[] = [];
+        const featured = await fetch("/api/listings/featured");
+        if (featured.ok) list = (await featured.json()) as Property[];
+        if (!list.length) {
+          const latest = await fetch("/api/listings?paginated=1&page=1&pageSize=6");
+          if (latest.ok) list = ((await latest.json()) as ListingPage).items;
+        }
+        if (!cancelled) setRecommended(list);
+      } catch { /* recommendations are optional */ }
+    })();
+    return () => { cancelled = true; };
+  }, [showEmpty, recommended.length]);
 
   const loadMore = useCallback(async () => {
     if (loading || loadingMore || !hasMore) return;
@@ -146,6 +165,10 @@ function PropertiesPage({ initial }: { initial?: { query: string; data: ListingP
 
   useReveal([items.length, queryKey]);
   const hasFilters = Object.values(search).some(Boolean);
+  const sortField = search.sort === "low" || search.sort === "high" ? "price" : search.sort === "price" || search.sort === "area" ? search.sort : "";
+  const sortDir = search.dir === "asc" || search.dir === "desc" ? search.dir : search.sort === "high" ? "desc" : sortField === "price" ? "asc" : "desc";
+  const SortIcon = sortDir === "asc" ? ArrowUpNarrowWide : ArrowDownWideNarrow;
+  const sortTitle = sortField === "" ? (sortDir === "asc" ? "Oldest first" : "Newest first") : sortDir === "asc" ? "Ascending" : "Descending";
   // const cityOptions = useMemo(() => cities, [cities]);
   const cityOptions = useMemo(() => (homeOptions ? homeOptions.locations.map((option) => option.value) : cities), [homeOptions, cities]);
   const typesByCategory = useMemo(() => (homeOptions ? { residential: homeOptions[CATEGORY_GROUPS.residential].map((option) => option.value), commercial: homeOptions[CATEGORY_GROUPS.commercial].map((option) => option.value) } : undefined), [homeOptions]);
@@ -164,9 +187,12 @@ function PropertiesPage({ initial }: { initial?: { query: string; data: ListingP
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setMobileOpen(true)} className="flex items-center gap-2 rounded-full bg-cream px-5 py-3 text-sm lg:hidden"><SlidersHorizontal className="h-4 w-4" /> Filters</button>
-            <select aria-label="Sort" value={search.sort ?? ""} onChange={(e) => set("sort", e.target.value)} className="field w-auto bg-cream pr-10 text-sm">
-              <option value="">Recommended</option><option value="low">Price: low to high</option><option value="high">Price: high to low</option><option value="area">Largest first</option>
+            <select aria-label="Sort by" value={sortField} onChange={(e) => update({ sort: e.target.value || undefined, dir: undefined })} className="field w-auto bg-cream pr-10 text-sm">
+              <option value="">Recommended</option><option value="price">Price</option><option value="area">Area</option>
             </select>
+            <button type="button" title={sortTitle} aria-label={`Sort order: ${sortTitle}`} onClick={() => update({ sort: sortField || undefined, dir: sortDir === "asc" ? "desc" : "asc" })} className="flex items-center justify-center self-stretch rounded-full bg-cream px-4 hover:bg-primary/10">
+              <SortIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
@@ -203,6 +229,14 @@ function PropertiesPage({ initial }: { initial?: { query: string; data: ListingP
           <section>
             {error && <div role="alert" className="mb-6 rounded-2xl bg-destructive/10 p-5 text-sm text-destructive">{error}<button onClick={() => { const requestId = ++requestRef.current; setError(""); setLoading(true); void fetchPage(1, false, requestId).catch((cause) => setError(cause instanceof Error ? cause.message : "Properties could not be loaded.")).finally(() => setLoading(false)); }} className="ml-3 underline">Retry</button></div>}
             {items.length ? <div className="grid gap-x-7 gap-y-14 sm:grid-cols-2 xl:grid-cols-3">{items.map((property) => <PropertyCard key={property.id} p={property} />)}</div> : !loading && !error ? <div className="rounded-[1.5rem] bg-cream p-12 text-center"><p className="display-md">No matches — yet.</p><p className="mt-3 text-base text-muted-foreground">Try widening your filters, or ask us about off-market homes.</p></div> : loading && <div className="grid gap-x-7 gap-y-14 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }, (_, index) => <div key={index} className="aspect-[4/3.4] animate-pulse rounded-[1.75rem] bg-cream" />)}</div>}
+            {showEmpty && recommended.length > 0 && (
+              <div className="mt-14">
+                <h2 className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Recommended Properties</h2>
+                <div className="mt-6 grid gap-x-7 gap-y-14 sm:grid-cols-2 xl:grid-cols-3">
+                  {recommended.map((property) => <PropertyCard key={property.id} p={property} />)}
+                </div>
+              </div>
+            )}
             {items.length > 0 && <div ref={sentinel} className="flex min-h-24 items-center justify-center text-sm text-muted-foreground" aria-live="polite">{loadingMore ? "Loading more properties…" : hasMore ? "Scroll to discover more" : `Showing all ${total} properties`}</div>}
           </section>
         </div>

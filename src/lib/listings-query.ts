@@ -34,7 +34,6 @@ const getFilterOptions = unstable_cache(
 );
 
 export async function queryListingsPage(searchParams: URLSearchParams, isAdmin: boolean) {
-  // ▼▼▼ PASTE original route.ts lines 23–164 here, then apply edits A and B below ▼▼▼
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const pageSize = Math.min(30, Math.max(1, Number(searchParams.get("pageSize")) || 15));
     const where: Prisma.ListingWhereInput = isAdmin ? {} : { status: "LIVE" };
@@ -159,23 +158,21 @@ export async function queryListingsPage(searchParams: URLSearchParams, isAdmin: 
     if (extraConditions.length) where.AND = extraConditions;
 
     const sort = searchParams.get("sort");
-    const orderBy: Prisma.ListingOrderByWithRelationInput[] = sort === "price-low"
-    ? [{ price: "asc" }, { id: "asc" }]
-    : sort === "price-high"
-        ? [{ price: "desc" }, { id: "asc" }]
-        : sort === "size-large"
-        ? [{ areaSqm: "desc" }, { id: "asc" }]
-        : sort === "name"
-            ? [{ title: "asc" }, { id: "asc" }]
-            : [{ publishedAt: "desc" }, { createdAt: "desc" }, { id: "asc" }];
-  // ▲▲▲ end of pasted block ▲▲▲
-  const [listings, total, { cities, types }] = await Promise.all([
+    const orderBy: Prisma.ListingOrderByWithRelationInput[] =
+      sort === "price-low" ? [{ price: "asc" }, { id: "asc" }]
+      : sort === "price-high" ? [{ price: "desc" }, { id: "asc" }]
+      : sort === "size-large" ? [{ areaSqm: { sort: "desc", nulls: "last" } }, { id: "asc" }]
+      : sort === "size-small" ? [{ areaSqm: { sort: "asc", nulls: "last" } }, { id: "asc" }]
+      : sort === "name" ? [{ title: "asc" }, { id: "asc" }]
+      : sort === "oldest" ? [{ publishedAt: "asc" }, { createdAt: "asc" }, { id: "asc" }]
+      : [{ publishedAt: "desc" }, { createdAt: "desc" }, { id: "asc" }];
+    const [listings, total, { cities, types }] = await Promise.all([
     prisma.listing.findMany({
       where,
       orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: { media: { orderBy: { position: "asc" } } },
+      include: { media: { where: { kind: "IMAGE", status: "READY" }, orderBy: { position: "asc" }, take: 1 } },
     }),
     prisma.listing.count({ where }),
     getFilterOptions(),

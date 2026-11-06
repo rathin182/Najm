@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SavingOverlay } from "@/components/admin/EditorParts";
 
 type Props = {
   section: AboutSectionDraft;
@@ -116,6 +117,7 @@ export function AboutSectionEditor({ section, busy, onClose, onSave }: Props) {
         if (!open && !busy && !uploading) onClose();
       }}
     >
+      {(busy || uploading) && <SavingOverlay label={uploading ? "Uploading image…" : form.id ? "Saving changes…" : "Adding section…"} />}
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-[1.5rem]">
         <DialogHeader>
           <DialogTitle className="text-2xl">

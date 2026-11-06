@@ -7,8 +7,14 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, ImagePlus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
-import { RichTextEditor } from "@/components/admin/RichTextEditor";
+// import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import dynamic from "next/dynamic";
+const RichTextEditor = dynamic(() => import("@/components/admin/RichTextEditor").then((m) => m.RichTextEditor), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse rounded-2xl bg-cream" />,
+});
 import { ARTICLE_CATEGORIES, type ArticleDTO } from "@/lib/articles";
+import { SavingOverlay } from "@/components/admin/EditorParts";
 
 type Form = {
   title: string;
@@ -228,6 +234,7 @@ export function ArticleEditor({ id }: { id?: string }) {
 
   return (
     <div>
+      {(saving || uploading) && <SavingOverlay label={uploading ? "Uploading image…" : live ? "Updating article…" : "Publishing article…"} />}
       <PageHeader
         title={id ? "Edit article" : "New article"}
         sub={live ? "Live on the Knowledge Hub." : "Draft — not visible on the site."}
@@ -357,7 +364,7 @@ export function ArticleEditor({ id }: { id?: string }) {
               hint={`${form.excerpt.length}/500 — shown on the Knowledge Hub card.`}
             >
               <textarea
-                className="field min-h-24"
+                className="field min-h-24 rounded-md"
                 maxLength={500}
                 value={form.excerpt}
                 onChange={(event) => set("excerpt", event.target.value)}

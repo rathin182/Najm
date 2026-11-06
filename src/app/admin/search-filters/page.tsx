@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Plus, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
 import {
@@ -109,16 +109,28 @@ export default function HomepageSearchFiltersPage() {
     }));
   }
 
+  // function addOption(group: HomeSearchGroup) {
+  //   setOptions((current) => ({
+  //     ...current,
+  //     [group]: [
+  //       ...current[group],
+  //       {
+  //         label: "New option",
+  //         // value: `new-option-${Date.now()}`,
+  //         value: VALUE_FOLLOWS_LABEL.includes(group) ? "New option" : `new-option-${Date.now()}`,
+  //       },
+  //     ],
+  //   }));
+  // }
   function addOption(group: HomeSearchGroup) {
     setOptions((current) => ({
       ...current,
       [group]: [
-        ...current[group],
         {
           label: "New option",
-          // value: `new-option-${Date.now()}`,
           value: VALUE_FOLLOWS_LABEL.includes(group) ? "New option" : `new-option-${Date.now()}`,
         },
+        ...current[group],
       ],
     }));
   }
@@ -356,17 +368,22 @@ function SearchOptionGroup({
   categoryLabel?: string;
 }) {
   const { title, hint } = HOME_SEARCH_GROUP_LABELS[group];
+  const [open, setOpen] = useState(false);
+  const heading = categoryLabel ? `${categoryLabel} types` : title;
 
   return (
     <section className="rounded-3xl bg-cream p-5 md:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-            <h2 className="text-xl font-medium">{categoryLabel ? `${categoryLabel} types` : title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{hint}</p>
-        </div>
+        <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex flex-1 items-start gap-3 text-left">
+          <ChevronDown className={`mt-1 h-5 w-5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+          <span>
+            <span className="block text-xl font-medium">{heading} <span className="text-sm font-normal text-muted-foreground">({options.length})</span></span>
+            <span className="mt-1 block text-sm text-muted-foreground">{hint}</span>
+          </span>
+        </button>
         <button
           type="button"
-          onClick={onAdd}
+          onClick={() => { setOpen(true); onAdd(); }}
           className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
@@ -374,26 +391,28 @@ function SearchOptionGroup({
         </button>
       </div>
 
-      <div className="mt-5 space-y-2">
-        {options.length === 0 ? (
-          <p className="rounded-xl bg-background p-4 text-sm text-muted-foreground">
-            No options. Add one to show choices in this dropdown.
-          </p>
-        ) : (
-          options.map((option, index) => (
-            <SearchOptionRow
-              key={`${group}-${index}`}
-              option={option}
-              index={index}
-              count={options.length}
-              valueFollowsLabel={VALUE_FOLLOWS_LABEL.includes(group)}
-              onUpdate={(changes) => onUpdate(index, changes)}
-              onRemove={() => onRemove(index)}
-              onMove={(direction) => onMove(index, direction)}
-            />
-          ))
-        )}
-      </div>
+      {open && (
+        <div className="mt-5 space-y-2">
+          {options.length === 0 ? (
+            <p className="rounded-xl bg-background p-4 text-sm text-muted-foreground">
+              No options. Add one to show choices in this dropdown.
+            </p>
+          ) : (
+            options.map((option, index) => (
+              <SearchOptionRow
+                key={`${group}-${index}`}
+                option={option}
+                index={index}
+                count={options.length}
+                valueFollowsLabel={VALUE_FOLLOWS_LABEL.includes(group)}
+                onUpdate={(changes) => onUpdate(index, changes)}
+                onRemove={() => onRemove(index)}
+                onMove={(direction) => onMove(index, direction)}
+              />
+            ))
+          )}
+        </div>
+      )}
     </section>
   );
 }

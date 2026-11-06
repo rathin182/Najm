@@ -21,3 +21,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const result = await prisma.listing.deleteMany({ where: { slug: id } });
   return result.count ? new Response(null, { status: 204 }) : Response.json({ error: "Listing not found." }, { status: 404 });
 }
+
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { error } = await guard(["ADMIN"]);
+  if (error) return error;
+  const { id } = await params;
+  const listing = await prisma.listing.findUnique({ where: { slug: id }, include: { media: { orderBy: { position: "asc" } } } });
+  return listing ? Response.json(listingToProperty(listing)) : Response.json({ error: "Listing not found." }, { status: 404 });
+}

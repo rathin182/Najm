@@ -6,6 +6,7 @@ import { FUTURE_PROJECT_STATUSES, type FutureProjectDraft } from "@/lib/future-p
 import { formatBudget } from "@/lib/future-projects";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { SavingOverlay } from "@/components/admin/EditorParts";
 
 type Props = {
   project: FutureProjectDraft;
@@ -77,11 +78,12 @@ export function FutureProjectEditor({ project, busy, onClose, onSave }: Props) {
 
   return (
     <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !busy && !uploading) onClose();
-      }}
+    open
+    onOpenChange={(open) => {
+      if (!open && !busy && !uploading) onClose();
+    }}
     >
+      {(busy || uploading) && <SavingOverlay label={uploading ? "Uploading cover…" : isEditing ? "Saving changes…" : "Creating project…"} />}
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-[1.5rem]">
         <DialogHeader>
           <DialogTitle className="text-2xl">

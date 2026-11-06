@@ -169,37 +169,28 @@ function Knowledge() {
           </Link>
         )}
 
-        {!loading && !error && filteredArticles.length > 0 && (
-          <div className="mt-12 grid gap-8">
-            {filteredArticles.map((article) => (
+        {!loading && !error && rest.length > 0 && (
+          <div className={`grid gap-8 ${showLead ? "mt-8" : "mt-12"} ${gridCols}`}>
+            {rest.map((article) => (
               <Link
                 key={article.id}
                 href={`/knowledge/${article.id}`}
-                className="group grid gap-8 rounded-[2.5rem] bg-cream p-3 md:grid-cols-2"
+                className="group flex flex-col rounded-[2rem] bg-cream p-3"
                 data-reveal
               >
-                <div className="mx-auto w-full max-w-xs aspect-[4/3] overflow-hidden rounded-[2rem]">
+                <div className="aspect-[4/3] w-full overflow-hidden rounded-[1.5rem] bg-secondary">
                   <img
                     src={article.coverImage || FALLBACK_IMG}
                     alt={article.title}
                     className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />
                 </div>
-
-                <div className="flex flex-col justify-center p-6">
-                  <p className="text-muted-foreground">
-                    {article.categoryLabel} · {article.readMinutes} min read
-                  </p>
-
-                  <h2 className="display-md mt-4">{article.title}</h2>
-
-                  <p className="mt-4 text-lg text-muted-foreground">
-                    {article.excerpt}
-                  </p>
-
-                  <span className="mt-8 flex items-center gap-2 text-lg text-primary">
-                    Read article
-                    <ArrowUpRight className="h-5 w-5" />
+                <div className="flex flex-1 flex-col p-5">
+                  <p className="text-sm text-muted-foreground">{article.categoryLabel} · {article.readMinutes} min read</p>
+                  <h2 className="mt-3 text-2xl font-medium leading-snug tracking-tight">{article.title}</h2>
+                  <p className="mt-3 line-clamp-3 text-muted-foreground">{article.excerpt}</p>
+                  <span className="mt-auto flex items-center gap-2 pt-6 text-primary">
+                    Read article <ArrowUpRight className="h-5 w-5" />
                   </span>
                 </div>
               </Link>

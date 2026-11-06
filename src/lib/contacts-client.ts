@@ -9,6 +9,7 @@ export type ApiContact = {
   city: string;
   notes: string;
   createdAt: string;
+  property?: string | null;
 };
 
 export const CONTACT_TYPES: ContactType[] = ["BUYER", "INVESTOR", "SELLER", "TENANT"];

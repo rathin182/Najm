@@ -106,9 +106,16 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
+  // useEffect(() => {
+  //   if (!ready) return;
+  //   try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota: large photos */ }
+  // }, [data, ready]);
   useEffect(() => {
     if (!ready) return;
-    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota: large photos */ }
+    const t = window.setTimeout(() => {
+      try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* quota: large photos */ }
+    }, 800);
+    return () => window.clearTimeout(t);
   }, [data, ready]);
 
   useEffect(() => {
@@ -121,13 +128,20 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sessionUser = session?.user;
-  const user: Staff | null = sessionUser ? {
+  // const user: Staff | null = sessionUser ? {
+  //   id: sessionUser.id,
+  //   name: sessionUser.name ?? sessionUser.email ?? "Staff",
+  //   email: sessionUser.email ?? "",
+  //   role: sessionUser.role === "ADMIN" ? "Admin" : sessionUser.role === "AGENT" ? "Agent" : "Viewer",
+  //   active: true,
+  // } : null;
+  const user = useMemo<Staff | null>(() => sessionUser ? {
     id: sessionUser.id,
     name: sessionUser.name ?? sessionUser.email ?? "Staff",
     email: sessionUser.email ?? "",
     role: sessionUser.role === "ADMIN" ? "Admin" : sessionUser.role === "AGENT" ? "Agent" : "Viewer",
     active: true,
-  } : null;
+  } : null, [sessionUser?.id, sessionUser?.name, sessionUser?.email, sessionUser?.role]);
   const upsert = <T extends { id: string }>(list: T[], item: T) => list.some((x) => x.id === item.id) ? list.map((x) => (x.id === item.id ? item : x)) : [item, ...list];
 
   const login = useCallback(() => "Use the secure sign-in form.", []);

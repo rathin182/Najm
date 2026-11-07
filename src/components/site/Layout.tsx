@@ -49,7 +49,7 @@ export function Nav() {
       <nav className={`relative mx-auto flex max-w-[1440px] items-center justify-between rounded-full py-2 pl-6 pr-2 transition-colors duration-500 ${scrolled ? "bg-background/45" : "bg-background/70"}`}>
         <span aria-hidden className="lg-nav glass pointer-events-none absolute inset-0 rounded-full" />
         <Link href="/" className="relative z-10 flex items-baseline text-lg font-medium tracking-tight">
-          <span className="fancy text-2xl">Najm</span>&nbsp;Estate
+          <span className="font-display text-primary text-2xl">Najm</span>&nbsp;Estate
         </Link>
         <div className="relative z-10 hidden items-center gap-1 md:flex">
           <Link href="/" className={`${link} ${pathname === "/" ? "bg-background/70" : ""}`}>Home</Link>

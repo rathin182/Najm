@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import "../styles.css";
 import { AppProviders } from "./providers";
-import { DM_Sans, Pinyon_Script } from "next/font/google";
+import { DM_Sans, Pinyon_Script, Playfair_Display } from "next/font/google";
 
 const dmSans = DM_Sans({ subsets: ["latin"], axes: ["opsz"], display: "swap", variable: "--font-dm-sans" });
 const pinyonScript = Pinyon_Script({ subsets: ["latin"], weight: "400", display: "swap", variable: "--font-pinyon-script" });
+const playfairDisplay = Playfair_Display({ subsets: ["latin"], weight: "400", display: "auto", style: "italic", variable: "--font-playfair-display" });
+
 
 export const metadata: Metadata = {
   title: { default: "Najm Estate — Premium Property in Saudi Arabia", template: "%s | Najm Estate" },
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     // <html lang="en" suppressHydrationWarning>
-    <html lang="en" className={`${dmSans.variable} ${pinyonScript.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${dmSans.variable} ${pinyonScript.variable} ${playfairDisplay.variable}`} suppressHydrationWarning>
       <head>
         {/* Runs before first paint: returning visitors never see the intro loader cover. */}
         <script

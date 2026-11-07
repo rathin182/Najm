@@ -92,20 +92,20 @@ function Hero() {
   }, []);
 
   // const sel = "w-full truncate appearance-none bg-transparent text-sm font-medium text-foreground outline-none cursor-pointer md:text-ink-foreground [&>option]:text-foreground";
-  const fs = "clamp(2.75rem, min(9.5vw, calc((100svh - 6.5rem) * 0.1377)), 11rem)";
+  const fs = "clamp(2.75rem, min(9.5vw, calc((100svh - 6.5rem) * 0.1377)), 8rem)";
 
   return (
     <section className="px-3 pb-[17rem] pt-24 md:px-4 md:pb-0">
       <div ref={stageRef} className="relative mx-auto h-[115vw] w-full sm:h-[min(69vw,calc(100svh-6.5rem))]">
-        <h1 className="absolute left-[5%] top-0 z-10 font-normal uppercase leading-[0.86] tracking-[-0.035em] sm:left-[23%]" style={{ fontSize: fs }}>
-          <span className="block overflow-hidden"><span data-hero-line className="block">Homes</span></span>
-          <span className="block overflow-hidden pb-[0.06em]"><span data-hero-line className="block"><span className="fancy normal-case">Beneath</span> the</span></span>
-          <span className="block overflow-hidden"><span data-hero-line className="block">Stars</span></span>
+        <h1 className="absolute left-[5%] top-0 z-10 font-medium uppercase leading-[1] tracking-[-0.028em] sm:left-[8%]" style={{ fontSize: fs }}>
+          <span className="block overflow-hidden text-8xl"><span data-hero-line className="block">Find Home</span></span>
+          <span className="block overflow-hidden text-8xl -mt-3"><span data-hero-line className="block"><span className="fancy normal-case">Invest Smart.</span></span></span>
+          <span className="block overflow-hidden text-9xl font-semibold"><span data-hero-line className="block">Build Wealth.</span></span>
         </h1>
 
-        <a href="#featured" aria-label="Scroll to featured homes" data-hero-side className="group absolute left-[6%] top-[19%] z-10 hidden aspect-square w-[10%] items-center justify-center rounded-full bg-cream transition-colors hover:bg-ink sm:flex">
+        <Link href="#featured" aria-label="Scroll to featured homes" data-hero-side className="group absolute right-[4%] top-[4%] z-10 hidden aspect-square w-[7%] items-center justify-center rounded-full bg-cream transition-colors hover:bg-ink sm:flex">
           <ArrowDownRight className="h-[30%] w-[30%] stroke-[1.25] text-foreground transition-colors group-hover:text-ink-foreground" />
-        </a>
+        </Link>
         <p data-hero-side className="absolute left-[84%] top-[19%] z-10 hidden max-w-[13%] text-[clamp(0.85rem,1.2vw,1.15rem)] leading-snug text-foreground/80 sm:block">
           Curated residences and investment property across the Kingdom.
         </p>
@@ -113,7 +113,7 @@ function Hero() {
         <div data-hero-photo className="absolute inset-x-0 bottom-0 top-[37.5%] overflow-hidden rounded-[1.75rem]">
           <img src={hero} alt="Najm Estate signature villa at blue hour" width={1920} height={1280} className="absolute inset-x-0 bottom-0 h-[119.2%] w-full object-cover object-top" />
         </div>
-        <img data-hero-cut src={heroCut} alt="" aria-hidden width={1920} height={1280} className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-[74.5%] w-full object-cover object-top" />
+        <img data-hero-cut src={heroCut} alt="" aria-hidden width={1920} height={1280} className="pointer-events-none absolute inset-x-0 bottom-4 z-20 h-[74.5%] w-full object-cover object-top" />
 
         <form
           data-hero-search

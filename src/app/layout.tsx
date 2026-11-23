@@ -20,14 +20,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     // <html lang="en" suppressHydrationWarning>
     <html lang="en" className={`${dmSans.variable} ${pinyonScript.variable} ${playfairDisplay.variable}`} suppressHydrationWarning>
-      <head>
-        {/* Runs before first paint: returning visitors never see the intro loader cover. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `try{if(sessionStorage.getItem("najm:intro-seen")==="1")document.documentElement.classList.add("intro-seen")}catch(e){}`,
-          }}
-        />
-      </head>
       <body><AppProviders>{children}</AppProviders></body>
     </html>
   );

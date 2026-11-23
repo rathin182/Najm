@@ -2,7 +2,6 @@ import type { HomeSearchOption } from "@/generated/prisma/client";
 import { CATEGORY_LABELS, CATEGORY_TYPES, type PropertyCategoryKey } from "@/lib/property-categories";
 
 export const HOME_SEARCH_GROUPS = [
-  "locations",
   "residentialTypes",
   "commercialTypes",
   "bedrooms",
@@ -11,7 +10,8 @@ export const HOME_SEARCH_GROUPS = [
 ] as const;
 export type HomeSearchGroup = (typeof HOME_SEARCH_GROUPS)[number];
 export type SearchOption = { id?: string; value: string; label: string };
-export type HomeSearchOptions = Record<HomeSearchGroup, SearchOption[]>;
+export type LocationOption = SearchOption & { featured?: boolean; image?: string | null; sortOrder?: number };
+export type HomeSearchOptions = Record<HomeSearchGroup, SearchOption[]> & { locations: LocationOption[] };
 export const CATEGORY_GROUPS = {
   residential: "residentialTypes",
   commercial: "commercialTypes",
@@ -19,10 +19,6 @@ export const CATEGORY_GROUPS = {
 export const PROPERTY_CATEGORIES = ["residential", "commercial"] as const satisfies readonly PropertyCategoryKey[];
 
 export const HOME_SEARCH_GROUP_LABELS: Record<HomeSearchGroup, { title: string; hint: string }> = {
-  // locations: { title: "Location", hint: "Shown in the homepage location dropdown." },
-  // residentialTypes: { title: "Residential property types", hint: "Shown when visitors choose Residential. Values feed directly into listing searches." },
-  // commercialTypes: { title: "Commercial property types", hint: "Shown when visitors choose Commercial. Values feed directly into listing searches." },
-  locations: { title: "Location", hint: "Shown in the homepage and Properties location dropdowns. Use the exact city name used in your listings." },
   residentialTypes: { title: "Residential property types", hint: "Shown on the homepage, Properties filters and the Add Property form. Renaming a type also renames it on existing listings." },
   commercialTypes: { title: "Commercial property types", hint: "Shown on the homepage, Properties filters and the Add Property form. Renaming a type also renames it on existing listings." },
   bedrooms: { title: "Bedrooms", hint: "Use 0 for studios and a number for minimum bedrooms." },
@@ -55,18 +51,19 @@ export function groupHomeSearchOptions(rows: HomeSearchOption[]): HomeSearchOpti
         .filter((row) => row.group === group && row.enabled)
         .map(({ value, label }) => ({ value, label })),
     ]),
-  ) as HomeSearchOptions;
+  ) as Record<HomeSearchGroup, SearchOption[]>;
+  const result: HomeSearchOptions = { ...options, locations: [] };
   // Groups the admin has not configured yet fall back to sensible defaults.
   for (const [group, defaults] of Object.entries(DEFAULT_FILTER_OPTIONS) as [HomeSearchGroup, SearchOption[]][]) {
-    if (options[group].length === 0) options[group] = defaults.map((option) => ({ ...option }));
+    if (result[group].length === 0) result[group] = defaults.map((option) => ({ ...option }));
   }
   for (const category of PROPERTY_CATEGORIES) {
     const group = CATEGORY_GROUPS[category];
-    if (options[group].length === 0) {
-      options[group] = CATEGORY_TYPES[category].map((value) => ({ value, label: value }));
+    if (result[group].length === 0) {
+      result[group] = CATEGORY_TYPES[category].map((value) => ({ value, label: value }));
     }
   }
-  return options;
+  return result;
 }
 
 export function validateHomeSearchOptions(value: unknown): value is HomeSearchOptions {

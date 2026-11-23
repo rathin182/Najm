@@ -1,3 +1,5 @@
+import type { PropertyAmenity } from "@/lib/property-amenities";
+
 const p1 = '/images/p1.jpg';
 const p2 = '/images/p2.jpg';
 const p3 = '/images/p3.jpg';
@@ -20,13 +22,13 @@ export type Property = {
   description: string;
   images: string[];
   featured?: boolean;
+  featuredPlacement?: "PROPERTIES" | "PROJECTS";
   investment?: { yield: number; label: string };
   status: "Ready" | "Off-plan";
   year: number;
-  amenities: string[];
+  amenities: Array<string | PropertyAmenity>;
 };
 
-export const CITIES = ["Riyadh", "Jeddah", "Dammam", "Al Khobar", "AlUla"] as const;
 export const TYPES = ["Villa", "Apartment", "Penthouse", "Townhouse", "Commercial"] as const;
 export const BUDGETS = [
   { label: "Up to 2M SAR", value: "0-2000000" },

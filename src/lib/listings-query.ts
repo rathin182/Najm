@@ -17,12 +17,12 @@ const getConfiguredTypes = unstable_cache(
 
 const getFilterOptions = unstable_cache(
   async () => {
-    const [cityOptions, typeOptions] = await Promise.all([
-      prisma.listing.findMany({ where: { status: "LIVE" }, select: { city: true }, distinct: ["city"], orderBy: { city: "asc" } }),
+    const [locationOptions, typeOptions] = await Promise.all([
+      prisma.location.findMany({ select: { name: true }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
       prisma.listing.findMany({ where: { status: "LIVE", propertyType: { not: null } }, select: { propertyType: true }, distinct: ["propertyType"], orderBy: { propertyType: "asc" } }),
     ]);
     return {
-      cities: cityOptions.map((item) => item.city),
+      cities: locationOptions.map((item) => item.name),
       types: [...new Set([
         ...typeOptions.flatMap((item) => item.propertyType ? [item.propertyType] : []),
         "residential", "commercial", "land",

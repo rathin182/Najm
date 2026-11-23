@@ -46,16 +46,14 @@ function cleanOptions(options: HeroOption[] | undefined): HeroOption[] {
 
 function Hero() {
   const router = useRouter();
-  const [homeSearchOptions, setHomeSearchOptions] = useState<HomeSearchOptions>({ locations: [], residentialTypes: [], commercialTypes: [], bedrooms: [], budgets: [], statuses: [] });
-  const stageRef = useRef<HTMLDivElement>(null);
-  // const [loc, setLoc] = useState("");
-  // const [type, setType] = useState("");
-  // const [category, setCategory] = useState<PropertyCategoryKey>("residential");
-  // const [budget, setBudget] = useState("");
-  // const [bedrooms, setBedrooms] = useState("");
-  // const [status, setStatus] = useState("");
-  // const [propertyTypeOpen, setPropertyTypeOpen] = useState(false);
-  // const categoryOptions = homeSearchOptions[CATEGORY_GROUPS[category]];
+  const [homeSearchOptions, setHomeSearchOptions] = useState<HomeSearchOptions>({
+    locations: [],
+    residentialTypes: [],
+    commercialTypes: [],
+    bedrooms: [],
+    budgets: [],
+    statuses: [],
+  });
 
   const [locs, setLocs] = useState<string[]>([]);
   const [type, setType] = useState("");
@@ -63,199 +61,120 @@ function Hero() {
   const [budget, setBudget] = useState("");
   const [bedrooms, setBedrooms] = useState("");
   const [status, setStatus] = useState("");
-  
+
+  // Load filter options (unchanged)
   useEffect(() => {
     let cancelled = false;
     fetch("/api/home-search-options", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() as Promise<HomeSearchOptions> : Promise.reject(new Error("Could not load homepage search filters.")))
-      .then((options) => { if (!cancelled) setHomeSearchOptions(options); })
-      .catch((error) => console.error("Homepage search filters could not be loaded", error))
-    return () => { cancelled = true; };
+      .then((response) =>
+        response.ok
+          ? (response.json() as Promise<HomeSearchOptions>)
+          : Promise.reject(new Error("Could not load homepage search filters."))
+      )
+      .then((options) => {
+        if (!cancelled) setHomeSearchOptions(options);
+      })
+      .catch((error) => console.error("Homepage search filters could not be loaded", error));
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    let ctx: { revert: () => void } | undefined;
-    (async () => {
-      const [{ gsap }] = await Promise.all([import("gsap"), introDone]);
-      if (cancelled || !stageRef.current) return;
-      ctx = gsap.context(() => {
-        gsap.timeline()
-          .fromTo("[data-hero-line]", { yPercent: 110 }, { yPercent: 0, duration: 1.2, stagger: 0.12, ease: "power4.out", clearProps: "transform" })
-          .fromTo("[data-hero-photo]", { scale: 1.08, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.6, ease: "power3.out", clearProps: "all" }, 0.1)
-          .fromTo("[data-hero-cut]", { y: 80, opacity: 0 }, { y: 0, opacity: 1, duration: 1.6, ease: "power3.out", clearProps: "all" }, 0.3)
-          .fromTo("[data-hero-side]", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 1, stagger: 0.1, ease: "power3.out", clearProps: "all" }, 0.6)
-          .fromTo("[data-hero-search]", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 1, ease: "power3.out", clearProps: "all" }, 0.9);
-      }, stageRef.current.parentElement ?? undefined);
-    })();
-    return () => { cancelled = true; ctx?.revert(); };
-  }, []);
-
-  // const sel = "w-full truncate appearance-none bg-transparent text-sm font-medium text-foreground outline-none cursor-pointer md:text-ink-foreground [&>option]:text-foreground";
-  const fs = "clamp(2.75rem, min(9.5vw, calc((100svh - 6.5rem) * 0.1377)), 8rem)";
+  // Submit search (unchanged logic)
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    for (const city of locs) params.append("city", city);
+    if (type) params.set("type", type);
+    if (category) params.set("category", category);
+    if (budget) params.set("budget", budget);
+    if (bedrooms) params.set("beds", bedrooms);
+    if (status) params.set("status", status.toLowerCase() === "off-plan" ? "Off-plan" : "Ready");
+    const query = params.toString();
+    router.push(query ? `/properties?${query}` : "/properties");
+  };
 
   return (
-    <section className="px-3 pb-[17rem] pt-24 md:px-4 md:pb-0">
-      <div ref={stageRef} className="relative mx-auto h-[115vw] w-full sm:h-[min(69vw,calc(100svh-6.5rem))]">
-        <h1 className="absolute left-[5%] top-0 z-10 font-medium uppercase leading-[1] tracking-[-0.028em] sm:left-[8%]" style={{ fontSize: fs }}>
-          <span className="block overflow-hidden text-8xl"><span data-hero-line className="block">Find Home</span></span>
-          <span className="block overflow-hidden text-8xl -mt-3"><span data-hero-line className="block"><span className="fancy normal-case">Invest Smart.</span></span></span>
-          <span className="block overflow-hidden text-9xl font-semibold"><span data-hero-line className="block">Build Wealth.</span></span>
-        </h1>
+    <section className="relative isolate flex min-h-[70svh] items-center justify-center overflow-hidden px-4 pb-16 pt-28">
+      {/* Background image + dark overlay */}
+      <img
+        src={hero}
+        alt=""
+        width={1920}
+        height={1280}
+        className="absolute inset-0 -z-20 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-black/60 via-black/35 to-black/65" />
 
-        <Link href="#featured" aria-label="Scroll to featured homes" data-hero-side className="group absolute right-[4%] top-[4%] z-10 hidden aspect-square w-[7%] items-center justify-center rounded-full bg-cream transition-colors hover:bg-ink sm:flex">
-          <ArrowDownRight className="h-[30%] w-[30%] stroke-[1.25] text-foreground transition-colors group-hover:text-ink-foreground" />
-        </Link>
-        <p data-hero-side className="absolute left-[84%] top-[19%] z-10 hidden max-w-[13%] text-[clamp(0.85rem,1.2vw,1.15rem)] leading-snug text-foreground/80 sm:block">
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center text-center">
+        <h1 className="text-4xl font-medium leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
+          Find Home. Invest Smart. Build Wealth.
+        </h1>
+        <p className="mt-4 max-w-xl text-base text-white/80 sm:text-lg">
           Curated residences and investment property across the Kingdom.
         </p>
 
-        <div data-hero-photo className="absolute inset-x-0 bottom-0 top-[37.5%] overflow-hidden rounded-[1.75rem]">
-          <img src={hero} alt="Najm Estate signature villa at blue hour" width={1920} height={1280} className="absolute inset-x-0 bottom-0 h-[119.2%] w-full object-cover object-top" />
-        </div>
-        <img data-hero-cut src={heroCut} alt="" aria-hidden width={1920} height={1280} className="pointer-events-none absolute inset-x-0 bottom-4 z-20 h-[74.5%] w-full object-cover object-top" />
+        {/* Search bar */}
+        <form onSubmit={handleSubmit} className="mt-10 w-full">
+          <div className="grid gap-1 rounded-3xl border border-border/50 bg-cream p-2 shadow-xl lg:grid-cols-[1.2fr_1fr_1fr_1fr_1.1fr_auto] lg:items-center lg:gap-0 lg:rounded-full lg:border-white/25 lg:bg-ink/55 lg:px-2.5 lg:py-2 lg:text-left lg:backdrop-blur-xl">
+            <HeroDropdown
+              icon={MapPin}
+              label="Location"
+              noun="locations"
+              multiple
+              searchable
+              searchPlaceholder="Search location…"
+              separator={false}
+              options={cleanOptions(homeSearchOptions.locations)}
+              anyLabel="Any location"
+              values={locs}
+              onChange={setLocs}
+            />
+            <HeroPropertyType
+              category={category}
+              type={type}
+              typesByCategory={{
+                residential: cleanOptions(homeSearchOptions[CATEGORY_GROUPS.residential]),
+                commercial: cleanOptions(homeSearchOptions[CATEGORY_GROUPS.commercial]),
+              }}
+              onChange={(nextCategory, nextType) => {
+                setCategory(nextCategory);
+                setType(nextType);
+              }}
+            />
+            <HeroDropdown
+              icon={BedDouble}
+              label="Bedrooms"
+              options={cleanOptions(homeSearchOptions.bedrooms)}
+              anyLabel="Any bedrooms"
+              values={bedrooms ? [bedrooms] : []}
+              onChange={(next) => setBedrooms(next[0] ?? "")}
+            />
+            <HeroDropdown
+              icon={Wallet}
+              label="Price range (SAR)"
+              options={cleanOptions(homeSearchOptions.budgets)}
+              anyLabel="Any price"
+              values={budget ? [budget] : []}
+              onChange={(next) => setBudget(next[0] ?? "")}
+            />
+            <HeroDropdown
+              icon={CheckCircle2}
+              label="Property status"
+              options={cleanOptions(homeSearchOptions.statuses)}
+              anyLabel="Any status"
+              values={status ? [status] : []}
+              onChange={(next) => setStatus(next[0] ?? "")}
+            />
 
-        <form
-          data-hero-search
-          onSubmit={(e) => {
-            e.preventDefault();
-            const params = new URLSearchParams();
-            // if (loc) params.set("city", loc);
-            for (const city of locs) params.append("city", city);
-            if (type) params.set("type", type);
-            if (category) params.set("category", category);
-            if (budget) params.set("budget", budget);
-            if (bedrooms) params.set("beds", bedrooms);
-            if (status) params.set("status", status.toLowerCase() === "off-plan" ? "Off-plan" : "Ready");
-            const query = params.toString();
-            router.push(query ? `/properties?${query}` : "/properties");
-          }}
-          className="absolute inset-x-0 top-full z-30 mx-auto mt-3 max-w-[1400px] md:inset-x-8 md:bottom-8 md:top-auto md:mt-0"
-        >
-<div className="relative z-10 grid gap-1 rounded-[1.4rem] border border-border/50 bg-cream p-2 shadow-xl shadow-ink/15 md:grid-cols-[1.05fr_0.8fr_1.1fr_1fr_minmax(10rem,1.1fr)_auto] md:items-center md:gap-0 md:rounded-full md:border-white/25 md:bg-ink/55 md:px-2.5 md:py-2 md:shadow-2xl md:backdrop-blur-xl md:backdrop-saturate-150">
-
-  {/* {[
-    { label: "Location", icon: MapPin, value: loc, set: setLoc, opts: withAny(homeSearchOptions.locations, "Any location") },
-    { label: "Bedrooms", icon: BedDouble, value: bedrooms, set: setBedrooms, opts: withAny(homeSearchOptions.bedrooms, "Any bedrooms") },
-    { label: "Price range (SAR)", icon: Wallet, value: budget, set: setBudget, opts: withAny(homeSearchOptions.budgets, "Any price") },
-    { label: "Property status", icon: CheckCircle2, value: status, set: setStatus, opts: withAny(homeSearchOptions.statuses, "Any status") },
-  ].map((f, i) => (
-    <label
-      key={f.label}
-      className={`group relative flex min-w-0 cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 transition-colors hover:bg-background/60 md:gap-2.5 md:rounded-full md:px-3 md:py-2 md:hover:bg-white/10 ${
-        i > 0
-          ? "md:before:absolute md:before:left-0 md:before:top-1/4 md:before:h-1/2 md:before:w-px md:before:bg-white/25"
-          : ""
-      }`}
-    >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-primary">
-        <f.icon className="h-3.5 w-3.5" />
-      </span>
-
-      <span className="flex min-w-0 flex-1 flex-col justify-center">
-        <span className="text-[10px] leading-none text-muted-foreground md:text-ink-foreground/75">
-          {f.label}
-        </span>
-
-        <select
-          value={f.value}
-          onChange={(e) => f.set(e.target.value)}
-          className={`${sel} mt-0.5 text-xs leading-tight`}
-          aria-label={f.label}
-        >
-          {f.opts.map(({ value, label }) => (
-              <option key={value || "any"} value={value}>
-                {label}
-              </option>
-            ))}
-        </select>
-      </span>
-
-      <ChevronDown className="pointer-events-none h-3.5 w-3.5 shrink-0 opacity-70 md:text-ink-foreground" />
-    </label>
-  ))}
-
-  {/* Property Type 
-  <Popover open={propertyTypeOpen} onOpenChange={setPropertyTypeOpen}>
-    <PopoverTrigger asChild>
-      <button
-        type="button"
-        aria-label="Choose property type"
-        aria-expanded={propertyTypeOpen}
-        className="group relative flex min-w-0 items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-background/60 md:rounded-full md:px-3 md:py-2 md:hover:bg-white/10 md:before:absolute md:before:left-0 md:before:top-1/4 md:before:h-1/2 md:before:w-px md:before:bg-white/25"
-      >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background text-primary">
-          <HomeIcon className="h-3.5 w-3.5" />
-        </span>
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-[10px] leading-none text-muted-foreground md:text-ink-foreground/75">Property type</span>
-          <span className="mt-1 truncate text-xs font-medium text-foreground md:text-ink-foreground">
-            {type || `All ${CATEGORY_LABELS[category].toLowerCase()} types`}
-          </span>
-        </span>
-        <ChevronDown className={`h-3.5 w-3.5 shrink-0 opacity-70 transition-transform md:text-ink-foreground ${propertyTypeOpen ? "rotate-180" : ""}`} />
-      </button>
-    </PopoverTrigger>
-    <PopoverContent align="start" sideOffset={10} className="z-[80] w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-background p-0 shadow-xl">
-      <div className="grid grid-cols-2 border-b border-border px-3 pt-2">
-        {PROPERTY_CATEGORIES.map((key) => (
-          <button
-            key={key}
-            type="button"
-            aria-pressed={category === key}
-            onClick={() => { setCategory(key); setType(""); }}
-            className={`border-b-2 px-3 py-3 text-sm transition-colors ${category === key ? "border-primary font-semibold text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}
-          >
-            {CATEGORY_LABELS[key]}
-          </button>
-        ))}
-      </div>
-      <div className="grid max-h-72 grid-cols-2 gap-2 overflow-y-auto p-3">
-        <button
-          type="button"
-          aria-pressed={!type}
-          onClick={() => { setType(""); setPropertyTypeOpen(false); }}
-          className={`flex min-h-10 items-center gap-2 rounded-full border px-3 text-left text-sm transition-colors ${!type ? "border-primary/40 bg-primary/5 text-primary" : "border-border text-foreground hover:bg-cream"}`}
-        >
-          <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${!type ? "border-primary" : "border-border"}`}>
-            {!type && <span className="h-2 w-2 rounded-full bg-primary" />}
-          </span>
-          <span className="truncate">All {CATEGORY_LABELS[category].toLowerCase()} types</span>
-        </button>
-        {categoryOptions.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            aria-pressed={type === value}
-            onClick={() => { setType(value); setPropertyTypeOpen(false); }}
-            className={`flex min-h-10 items-center gap-2 rounded-full border px-3 text-left text-sm transition-colors ${type === value ? "border-primary/40 bg-primary/5 text-primary" : "border-border text-foreground hover:bg-cream"}`}
-          >
-            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${type === value ? "border-primary" : "border-border"}`}>
-              {type === value && <span className="h-2 w-2 rounded-full bg-primary" />}
-            </span>
-            <span className="truncate">{label}</span>
-          </button>
-        ))}
-      </div>
-    </PopoverContent>
-  </Popover> */}
-  <HeroDropdown icon={MapPin} label="Location" noun="locations" multiple searchable searchPlaceholder="Search location…" separator={false} options={cleanOptions(homeSearchOptions.locations)} anyLabel="Any location" values={locs} onChange={setLocs} />
-  <HeroDropdown icon={BedDouble} label="Bedrooms" options={cleanOptions(homeSearchOptions.bedrooms)} anyLabel="Any bedrooms" values={bedrooms ? [bedrooms] : []} onChange={(next) => setBedrooms(next[0] ?? "")} />
-  <HeroDropdown icon={Wallet} label="Price range (SAR)" options={cleanOptions(homeSearchOptions.budgets)} anyLabel="Any price" values={budget ? [budget] : []} onChange={(next) => setBudget(next[0] ?? "")} />
-  <HeroDropdown icon={CheckCircle2} label="Property status" options={cleanOptions(homeSearchOptions.statuses)} anyLabel="Any status" values={status ? [status] : []} onChange={(next) => setStatus(next[0] ?? "")} />
-  <HeroPropertyType category={category} type={type} typesByCategory={{ residential: cleanOptions(homeSearchOptions[CATEGORY_GROUPS.residential]), commercial: cleanOptions(homeSearchOptions[CATEGORY_GROUPS.commercial]) }} onChange={(nextCategory, nextType) => { setCategory(nextCategory); setType(nextType); }} />
-
-  {/* Search Button */}
-  <button
-    type="submit"
-    className="flex items-center justify-center gap-2 self-stretch rounded-full bg-primary px-5 py-2.5 text-sm text-primary-foreground transition-colors hover:bg-background hover:text-foreground md:my-0.5 md:mr-0.5 md:self-stretch"
-  >
-    <Search className="h-4 w-4" />
-    <span className="hidden xl:inline">Search</span>
-  </button>
-
-</div>
-
+            <button
+              type="submit"
+              className="flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-background hover:text-foreground lg:my-0.5 lg:mr-0.5"
+            >
+              <Search className="h-4 w-4" />
+              <span>Search</span>
+            </button>
+          </div>
         </form>
       </div>
     </section>
@@ -289,14 +208,20 @@ type HomeArticle = {
   readMinutes: number;
 };
 
+type FeaturedCity = { id: string; name: string; image: string | null };
+
 function Home() {
   useReveal();
   const [articles, setArticles] = useState<HomeArticle[]>([]);
   const [articlesLoaded, setArticlesLoaded] = useState(false);
   const [faq, setFaq] = useState<number | null>(0);
   const [featured, setFeatured] = useState<Property[]>([]);
+  const [featuredCities, setFeaturedCities] = useState<FeaturedCity[]>([]);
   const [otherProperties, setOtherProperties] = useState<Property[]>([]);
   const [vault, setVault] = useState<AdminProperty[]>([]);
+
+  const featuredProperties = featured.filter((property) => property.featuredPlacement !== "PROJECTS");
+  const featuredProjects = featured.filter((property) => property.featuredPlacement === "PROJECTS");
 
   useEffect(() => {
     let cancelled = false;
@@ -324,6 +249,18 @@ function Home() {
         if (!cancelled && Array.isArray(listings)) setFeatured(listings);
       })
       .catch((error) => console.error("Homepage properties could not be loaded", error));
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/locations/featured", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load featured cities.");
+        return response.json() as Promise<FeaturedCity[]>;
+      })
+      .then((cities) => { if (!cancelled && Array.isArray(cities)) setFeaturedCities(cities); })
+      .catch((error) => console.error("Homepage featured cities could not be loaded", error));
     return () => { cancelled = true; };
   }, []);
 
@@ -388,7 +325,7 @@ function Home() {
       <Hero />
 
       {/* Featured */}
-      <section id="featured" className="scroll-mt-24 px-6 py-20">
+      {/* <section id="featured" className="scroll-mt-24 px-6 py-20">
         <div className="mx-auto max-w-[1400px]">
           <div className="flex flex-wrap items-end justify-between gap-8">
             <SectionTitle word="Featured" rest=" homes" eyebrow="Hand-picked this season" />
@@ -400,10 +337,68 @@ function Home() {
             {featured.map((p) => <PropertyCard key={p.id} p={p} />)}
           </div>
         </div>
-      </section>
+      </section> */}
+
+      {/* Featured projects */}
+      {featuredProjects.length > 0 && <section id="featured-projects" className="scroll-mt-24 px-6 py-20">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-end justify-between gap-8">
+            <SectionTitle word="Featured" rest=" projects" eyebrow="Discover our featured developments" />
+            <Link href="/properties" className="flex items-center gap-2 text-lg hover:text-primary" data-reveal>
+              View all projects <ArrowUpRight className="h-5 w-5" />
+            </Link>
+          </div>
+          <div className="mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredProjects.map((p) => <PropertyCard key={`project-${p.id}`} p={p} />)}
+          </div>
+        </div>
+      </section>}
+
+      {/* Featured properties */}
+      {featuredProperties.length > 0 && <section id="featured-properties" className="scroll-mt-24 px-6 py-20">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-end justify-between gap-8">
+            <SectionTitle word="Featured" rest=" properties" eyebrow="Hand-picked homes and land" />
+            <Link href="/properties" className="flex items-center gap-2 text-lg hover:text-primary" data-reveal>
+              View all properties <ArrowUpRight className="h-5 w-5" />
+            </Link>
+          </div>
+          <div className="mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredProperties.map((p) => <PropertyCard key={`property-${p.id}`} p={p} />)}
+          </div>
+        </div>
+      </section>}
+
+      {/* Featured cities */}
+      {featuredCities.length > 0 && <section id="featured-cities" className="scroll-mt-24 px-6 py-20">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-end justify-between gap-8">
+            <SectionTitle word="Featured" rest=" cities" eyebrow="Explore our featured destinations" />
+            {/* <Link href="/properties" className="flex items-center gap-2 text-lg hover:text-primary" data-reveal>
+              Explore properties <ArrowUpRight className="h-5 w-5" />
+            </Link> */}
+          </div>
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredCities.map((city) => (
+              <Link key={city.id} href={`/properties?city=${encodeURIComponent(city.name)}`} className="group relative block aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-secondary" data-reveal>
+                {city.image ? (
+                  <img src={city.image} alt={city.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]" />
+                ) : (
+                  <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/20 via-cream to-secondary"><MapPin className="h-10 w-10 text-primary" /></div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-3 text-white">
+                  <h3 className="text-2xl font-medium tracking-tight">{city.name}</h3>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/90 text-foreground transition-transform group-hover:-translate-y-1 group-hover:translate-x-1"><ArrowUpRight className="h-5 w-5" /></span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>}
 
       {/* Investment Vault */}
-      {vault.length > 0 && (
+      {/* {vault.length > 0 && (
       <section id="vault" className="scroll-mt-24 bg-cream px-6 py-20">
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-10 md:grid-cols-2 md:items-end">
@@ -435,25 +430,48 @@ function Home() {
           </div>
         </div>
       </section>
-      )}
+      )} */}
 
-      {/* Other properties */}
-      <section className="px-6 py-20">
+      {/* Top viewed property by destination */}
+      {otherProperties.length > 0 && <section className="px-6 py-20">
         <div className="mx-auto max-w-[1400px]">
-          <SectionTitle word="More" rest=" to explore" />
-          <div className="mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
-            {otherProperties.map((p) => <PropertyCard key={p.id} p={p} />)}
+          <SectionTitle word="Explore" rest=" destinations" eyebrow="The most viewed home in each city" />
+          <div className="mt-16 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+            {otherProperties.map((p) => (
+              <Link key={p.id} href={`/properties/${p.id}`} className="group block" data-reveal>
+                <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] bg-secondary">
+                  {p.images[0] && <img src={p.images[0]} alt={p.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]" />}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                  <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-4 text-white">
+                    <div>
+                      <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-white/75">Explore destination</p>
+                      <h3 className="text-3xl font-medium tracking-tight">{p.city}</h3>
+                    </div>
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/90 text-foreground transition-transform group-hover:-translate-y-1 group-hover:translate-x-1"><ArrowUpRight className="h-5 w-5" /></span>
+                  </div>
+                </div>
+                <div className="px-1 pt-5">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                    <h4 className="text-lg font-medium tracking-tight">{p.title}</h4>
+                    <span className="text-lg font-medium text-primary">{formatSAR(p.price)}</span>
+                  </div>
+                  <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{p.district}, {p.city}</p>
+                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.short}</p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary">View this home <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Info statement */}
-      <section className="px-6 py-20">
+      {/* <section className="px-6 py-20">
         <p className="display-md mx-auto max-w-5xl text-center" data-reveal>
           Vision 2030 is reshaping the Kingdom. We place you at the heart of it — with homes and investments in the{" "}
           <span className="text-primary">fastest-growing real estate market</span> in the region.
         </p>
-      </section>
+      </section> */}
 
       <GigaProjects />
 

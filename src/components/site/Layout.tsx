@@ -8,26 +8,35 @@ import { DEFAULT_CONTACT_SETTINGS, type ContactOffice } from "@/lib/contact-sett
 
 export function SmoothScroll() {
   useEffect(() => {
+    let cancelled = false;
     let lenis: import("lenis").default | undefined;
     let tick: ((t: number) => void) | undefined;
     let gsapRef: typeof import("gsap").gsap | undefined;
     (async () => {
-      const Lenis = (await import("lenis")).default;
-      const { gsap } = await import("gsap");
-      const { ScrollTrigger } = await import("gsap/ScrollTrigger");
+      const [lenisModule, gsapModule, scrollTriggerModule] = await Promise.all([
+        import("lenis"),
+        import("gsap"),
+        import("gsap/ScrollTrigger"),
+      ]);
+      if (cancelled) return;
+      const Lenis = lenisModule.default;
+      const { gsap } = gsapModule;
+      const { ScrollTrigger } = scrollTriggerModule;
       gsap.registerPlugin(ScrollTrigger);
       gsapRef = gsap;
-      const l = new Lenis({ duration: 1.2, smoothWheel: true });
+      const l = new Lenis({ duration: 0.8, smoothWheel: true });
       lenis = l;
       (window as unknown as { __lenis?: unknown }).__lenis = l;
       l.on("scroll", ScrollTrigger.update);
       tick = (t: number) => lenis?.raf(t * 1000);
       gsap.ticker.add(tick);
-      gsap.ticker.lagSmoothing(0);
-    })();
+    })().catch((error) => console.error("Smooth scrolling could not be initialized", error));
     return () => {
+      cancelled = true;
       if (tick && gsapRef) gsapRef.ticker.remove(tick);
       lenis?.destroy();
+      const scrollState = window as unknown as { __lenis?: unknown };
+      if (scrollState.__lenis === lenis) delete scrollState.__lenis;
     };
   }, []);
   return null;
@@ -36,31 +45,30 @@ export function SmoothScroll() {
 export function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [scrolled, setScrolled] = useState(() => pathname !== "/");
   useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 40);
+    const on = () => setScrolled(pathname !== "/" || window.scrollY > 40);
     on();
     window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
-  }, []);
-  const link = "rounded-full px-4 py-2 text-sm transition-colors hover:bg-background/60";
+  }, [pathname]);
+  const link = `rounded-full px-4 py-2 text-sm transition-colors hover:bg-background/60 ${scrolled ? "text-foreground" : "text-white"}`;
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-4 pt-4">
-      <nav className={`relative mx-auto flex max-w-[1440px] items-center justify-between rounded-full py-2 pl-6 pr-2 transition-colors duration-500 ${scrolled ? "bg-background/45" : "bg-background/70"}`}>
-        <span aria-hidden className="lg-nav glass pointer-events-none absolute inset-0 rounded-full" />
-        <Link href="/" className="relative z-10 flex items-baseline text-lg font-medium tracking-tight">
-          <span className="font-display text-primary text-2xl">Najm</span>&nbsp;Estate
+      <nav className={`relative mx-auto flex max-w-full items-center justify-between rounded-md py-2 pl-6 pr-2 transition-colors duration-500 ${scrolled ? "bg-background/50 shadow-sm backdrop-blur-xl" : "bg-transparent"}`}>
+        <Link href="/" className={`relative z-10 flex items-baseline text-lg font-medium tracking-tight ${scrolled ? "text-foreground" : "text-white"}`}>
+          <span className={`font-display text-2xl ${scrolled ? "text-primary" : "text-primary"}`}>Najm</span>&nbsp;Estate
         </Link>
         <div className="relative z-10 hidden items-center gap-1 md:flex">
-          <Link href="/" className={`${link} ${pathname === "/" ? "bg-background/70" : ""}`}>Home</Link>
-          <Link href="/properties" className={`${link} ${pathname.startsWith("/properties") ? "bg-background/70" : ""}`}>Properties</Link>
+          <Link href="/" className={`${link} ${pathname === "/" ? (scrolled ? "bg-background/70" : "bg-white/20") : ""}`}>Home</Link>
+          <Link href="/properties" className={`${link} ${pathname.startsWith("/properties") ? (scrolled ? "bg-background/70" : "bg-white/20") : ""}`}>Properties</Link>
           {/* <a href="/#vault" className={link}>Invest</a> */}
           {/* <a href="/#projects" className={link}>Giga Projects</a> */}
-          <Link href="/knowledge" className={`${link} ${pathname === "/knowledge" ? "bg-background/70" : ""}`}>Knowledge Hub</Link>
-          <Link href="/about" className={`${link} ${pathname === "/about" ? "bg-background/70" : ""}`}>About</Link>
-          <Link href="/contact" className={`${link} ${pathname === "/contact" ? "bg-background/70" : ""}`}>Contact</Link>
+          <Link href="/knowledge" className={`${link} ${pathname === "/knowledge" ? (scrolled ? "bg-background/70" : "bg-white/20") : ""}`}>Knowledge Hub</Link>
+          <Link href="/about" className={`${link} ${pathname === "/about" ? (scrolled ? "bg-background/70" : "bg-white/20") : ""}`}>About</Link>
+          <Link href="/contact" className={`${link} ${pathname === "/contact" ? (scrolled ? "bg-background/70" : "bg-white/20") : ""}`}>Contact</Link>
         </div>
-        <Link href="/contact" className="relative z-10 hidden items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm text-ink-foreground transition-colors hover:bg-primary md:flex">
+        <Link href="/contact" className="relative z-10 hidden items-center gap-2 rounded-md bg-ink px-5 py-2.5 text-sm text-ink-foreground transition-colors hover:bg-primary md:flex">
           Book a viewing <ArrowUpRight className="h-4 w-4" />
         </Link>
         <button className="relative z-10 rounded-full bg-ink p-2.5 text-ink-foreground md:hidden" onClick={() => setOpen(!open)} aria-label="Menu">

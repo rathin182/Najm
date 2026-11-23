@@ -3,14 +3,15 @@ import { Prisma, type ListingType, type PropertyCategory } from "@/generated/pri
 import { prisma } from "@/lib/prisma";
 import { guard } from "@/lib/admin-guard";
 import { listingToProperty } from "@/lib/listing-property";
+import { encodeAmenity } from "@/lib/property-amenities";
 
 const pair = z.tuple([z.string(), z.string()]);
 const propertySchema = z.object({
   id: z.string().min(1).max(200), title: z.string().trim().min(1).max(200), city: z.string().trim().min(1).max(100), district: z.string().trim().max(150),
   type: z.string().trim().min(1).max(100), price: z.number().int().positive(), area: z.number().positive(), beds: z.number().int().nonnegative(), baths: z.number().int().nonnegative(),
   short: z.string().max(500), description: z.string().max(20000), images: z.array(z.string().url().or(z.string().startsWith("/"))).min(1).max(50),
-  featured: z.boolean().optional(), investment: z.object({ yield: z.number().nonnegative(), label: z.string().max(120) }).optional(), status: z.enum(["Ready", "Off-plan"]), year: z.number().int().min(1800).max(2200),
-  amenities: z.array(z.string().max(100)).max(100), views: z.number().int().nonnegative().optional(), published: z.boolean(), details: z.object({
+  featured: z.boolean().optional(), featuredPlacement: z.enum(["PROPERTIES", "PROJECTS"]).default("PROPERTIES"), investment: z.object({ yield: z.number().nonnegative(), label: z.string().max(120) }).optional(), status: z.enum(["Ready", "Off-plan"]), year: z.number().int().min(1800).max(2200),
+  amenities: z.array(z.union([z.string().max(100), z.object({ name: z.string().trim().min(1).max(100), icon: z.string().min(1).max(100) })])).max(100), views: z.number().int().nonnegative().optional(), published: z.boolean(), details: z.object({
     plot: z.number().nonnegative(), floors: z.string().max(100), parking: z.number().nonnegative(), furnishing: z.string().max(80), facing: z.string().max(80), developer: z.string().max(200), deed: z.string().max(200), lat: z.number(), lng: z.number(), serviceCharge: z.number().nonnegative(), handover: z.string().max(50), video: z.string().max(2000), rooms: z.array(pair), nearby: z.array(pair), plan: z.array(pair), features: z.array(z.string().max(100)), agentName: z.string().max(200), agentPhone: z.string().max(80), seoTitle: z.string().max(200), seoDescription: z.string().max(500), annualRent: z.number().nonnegative().optional(), priceGrowth5yr: z.number().min(-100).max(1000).optional(),
   }).optional(),
 }).superRefine((property, context) => {
@@ -37,8 +38,26 @@ export async function POST(request: Request) {
   const { error, session } = await guard(["ADMIN"]);
   if (error) return error;
   const parsed = propertySchema.safeParse(await request.json());
-  if (!parsed.success) return Response.json({ error: "Invalid property data.", issues: parsed.error.flatten() }, { status: 400 });
+  if (!parsed.success) {
+    return Response.json({
+      error: "Invalid property data.",
+      issues: parsed.error.issues.map((issue) => ({
+        field: issue.path.join("."),
+        message: issue.message,
+      })),
+    }, { status: 400 });
+  }
   const p = parsed.data;
+  const configuredLocation = await prisma.location.findFirst({
+    where: { name: { equals: p.city, mode: "insensitive" } },
+    select: { name: true },
+  });
+  if (!configuredLocation) {
+    return Response.json(
+      { error: "Choose a city from Admin → Locations before saving this property." },
+      { status: 400 },
+    );
+  }
   // const category: PropertyCategory = p.type.toLowerCase().includes("commercial") || ["office", "shop", "showroom", "warehouse", "industrial building", "business center", "restaurant / cafe", "co-working space"].includes(p.type.toLowerCase()) ? "COMMERCIAL" : p.type.toLowerCase().includes("land") || p.type.toLowerCase().includes("plot") ? "LAND" : "RESIDENTIAL";
   const configuredCommercial = (await prisma.homeSearchOption.findMany({ where: { enabled: true, group: "commercialTypes" }, select: { value: true } })).map((row) => row.value.trim().toLowerCase());
   const typeKey = p.type.trim().toLowerCase();
@@ -50,9 +69,9 @@ export async function POST(request: Request) {
   const details = { ...(p.details ?? {}), short: p.short, serviceCharge: p.details?.serviceCharge ?? 0, paymentPlan: p.details?.plan ?? [], state: "Sale" };
   const data = {
     ownerId: session!.user.id, slug, title: p.title, description: p.description || p.short, listingType, category, propertyType: p.type,
-    price: BigInt(p.price), featured: !!p.featured, bedrooms: p.beds, bathrooms: p.baths, furnished: p.details?.furnishing.toLowerCase().includes("furnished") ?? false,
-    floors: Number.parseInt(p.details?.floors ?? "", 10) || null, yearBuilt: p.year, areaSqm: Math.round(p.area), locality: p.district || null, city: p.city, state: "Saudi Arabia",
-    latitude: p.details?.lat ?? null, longitude: p.details?.lng ?? null, isOffPlan: p.status === "Off-plan", amenities: p.amenities, keyFeatures: p.details?.features ?? [],
+    price: BigInt(p.price), featured: !!p.featured, featuredPlacement: p.featuredPlacement, bedrooms: p.beds, bathrooms: p.baths, furnished: p.details?.furnishing.toLowerCase().includes("furnished") ?? false,
+    floors: Number.parseInt(p.details?.floors ?? "", 10) || null, yearBuilt: p.year, areaSqm: Math.round(p.area), locality: p.district || null, city: configuredLocation.name, state: "Saudi Arabia",
+    latitude: p.details?.lat ?? null, longitude: p.details?.lng ?? null, isOffPlan: p.status === "Off-plan", amenities: p.amenities.map(encodeAmenity), keyFeatures: p.details?.features ?? [],
     projectedYield: p.investment ? String(p.investment.yield) : null, tier: p.investment?.label ?? null, badge: p.short || null, details,
     status: p.published ? "LIVE" as const : "DRAFT" as const, publishedAt: p.published ? new Date() : null,
   };

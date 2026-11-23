@@ -14,14 +14,16 @@ export async function GET() {
   const { error } = await guard(["ADMIN"]);
   if (error) return error;
   try {
-    const rows = await prisma.homeSearchOption.findMany({
-      orderBy: [{ group: "asc" }, { position: "asc" }],
-    });
+    const [rows, locations] = await Promise.all([
+      prisma.homeSearchOption.findMany({ orderBy: [{ group: "asc" }, { position: "asc" }] }),
+      prisma.location.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    ]);
     const result = groupHomeSearchOptions(rows);
     for (const group of HOME_SEARCH_GROUPS)
       result[group] = rows
         .filter((row) => row.group === group)
         .map(({ id, value, label }) => ({ id, value, label }));
+    result.locations = locations.map(({ id, name, featured, image, sortOrder }) => ({ id, value: name, label: name, featured, image, sortOrder }));
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (cause) {
     console.error("Load homepage search options failed:", cause);
@@ -88,15 +90,6 @@ export async function POST(request: Request) {
           });
 
           for (const { from, to } of renames) {
-            if (group === "locations") {
-              await tx.listing.updateMany({
-                where: {
-                  city: { equals: from, mode: "insensitive" },
-                },
-                data: { city: to },
-              });
-            }
-
             if (
               group === CATEGORY_GROUPS.residential ||
               group === CATEGORY_GROUPS.commercial
@@ -166,12 +159,17 @@ export async function POST(request: Request) {
       }
     );
 
-    const result = groupHomeSearchOptions(saved);
+    const [result, locations] = await Promise.all([
+      Promise.resolve(groupHomeSearchOptions(saved)),
+      prisma.location.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
+    ]);
 
     for (const group of HOME_SEARCH_GROUPS) {
       result[group] = saved
         .filter((row) => row.group === group)
         .map(({ id, value, label }) => ({ id, value, label }));
+
+    result.locations = locations.map(({ id, name, featured, image, sortOrder }) => ({ id, value: name, label: name, featured, image, sortOrder }));
     }
 
     return NextResponse.json(result, {

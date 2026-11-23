@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,45 +26,33 @@ function tenure(joinedAt: string): string {
 }
 
 export function TeamMembers() {
-  const section = useRef<HTMLDivElement>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<TeamMember | null>(null);
 
   useEffect(() => {
-    const node = section.current;
-    if (!node) return;
     let cancelled = false;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        observer.disconnect();
-        void fetch("/api/team", { cache: "no-store" })
-          .then(async (response) => {
-            if (!response.ok) throw new Error("Could not load team.");
-            return response.json() as Promise<TeamMember[]>;
-          })
-          .then((team) => {
-            if (!cancelled) setMembers(team);
-          })
-          .catch(() => {
-            if (!cancelled) setMembers([]);
-          })
-          .finally(() => {
-            if (!cancelled) setLoaded(true);
-          });
-      },
-      { rootMargin: "300px" },
-    );
-    observer.observe(node);
+    void fetch("/api/team", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load team.");
+        return response.json() as Promise<TeamMember[]>;
+      })
+      .then((team) => {
+        if (!cancelled) setMembers(team);
+      })
+      .catch(() => {
+        if (!cancelled) setMembers([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
+      });
     return () => {
       cancelled = true;
-      observer.disconnect();
     };
   }, []);
 
   return (
-    <div ref={section}>
+    <div>
       {!loaded ? (
         <div
           className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4"

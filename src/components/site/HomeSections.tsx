@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { formatBudget, formatDeadline, type FutureProject } from "@/lib/future-projects";
 import { TeamMembers } from "@/components/site/TeamMembers";
@@ -9,71 +9,58 @@ import { WHY_NAJM_ICONS } from "@/lib/why-najm-icons";
 import { CATEGORY_GROUPS, PROPERTY_CATEGORIES, type HomeSearchOptions } from "@/lib/home-search-options";
 import { CATEGORY_LABELS, CATEGORY_TYPES } from "@/lib/property-categories";
 
-/** Giga projects: tall sticky stage; vertical scroll progress drives the card track horizontally on desktop (no pinning, so nothing overlaps). */
+/** Giga projects: one project at a time, navigated with on-screen controls. */
 export function GigaProjects() {
-  const outer = useRef<HTMLElement>(null);
-  const track = useRef<HTMLDivElement>(null);
   const [projects, setProjects] = useState<FutureProject[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    const section = outer.current;
-    if (!section) return;
     let cancelled = false;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      observer.disconnect();
-      void fetch("/api/future-projects", { cache: "no-store" })
-        .then(async (response) => {
-          if (!response.ok) throw new Error("Could not load projects.");
-          return response.json() as Promise<FutureProject[]>;
-        })
-        .then((items) => { if (!cancelled) setProjects(items); })
-        .catch(() => { if (!cancelled) setProjects([]); })
-        .finally(() => { if (!cancelled) setLoaded(true); });
-    }, { rootMargin: "400px" });
-    observer.observe(section);
-    return () => { cancelled = true; observer.disconnect(); };
+    void fetch("/api/future-projects", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load projects.");
+        return response.json() as Promise<FutureProject[]>;
+      })
+      .then((items) => { if (!cancelled) setProjects(items); })
+      .catch(() => { if (!cancelled) setProjects([]); })
+      .finally(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    const el = track.current, sec = outer.current;
-    if (!el || !sec) return;
-    const mq = window.matchMedia("(min-width: 1024px)");
-    let raf = 0;
-    const size = () => {
-      if (!mq.matches) { sec.style.height = ""; el.style.transform = ""; return; }
-      sec.style.height = `${window.innerHeight + Math.max(0, el.scrollWidth - window.innerWidth)}px`;
-      update();
-    };
-    const update = () => {
-      if (!mq.matches) return;
-      const dist = Math.max(0, el.scrollWidth - window.innerWidth);
-      const top = sec.getBoundingClientRect().top;
-      const p = Math.min(1, Math.max(0, -top / Math.max(1, dist)));
-      el.style.transform = `translate3d(${-p * dist}px,0,0)`;
-    };
-    const onScroll = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); };
-    size();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", size);
-    mq.addEventListener("change", size);
-    const t = setTimeout(size, 600);
-    return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", size); mq.removeEventListener("change", size); clearTimeout(t); cancelAnimationFrame(raf); };
-  }, [projects]);
+  const showPrevious = () => setActiveIndex((index) => Math.max(0, index - 1));
+  const showNext = () => setActiveIndex((index) => Math.min(projects.length - 1, index + 1));
 
   if (loaded && projects.length === 0) return null;
 
   return (
-    <section ref={outer} id="projects" className="relative bg-ink text-ink-foreground">
-      <div className="overflow-hidden py-16 lg:sticky lg:top-0 lg:flex lg:h-svh lg:flex-col lg:justify-center lg:py-10">
+    <section id="projects" className="relative bg-ink text-ink-foreground">
+      <div className="py-16 lg:py-20">
         <div className="mx-auto w-full max-w-[1440px] px-6">
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
           <p className="mb-4 text-lg opacity-60">Upcoming & under construction</p>
-          <h2 className="display-lg">The <span className="fancy">Sovereign</span> Giga Projects</h2>
+          {/* <h2 className="display-lg">The <span className="fancy">Sovereign</span> Giga Projects</h2> */}
+          <h2 className="display-lg">Upcoming <span className="fancy">Projects</span></h2>
+            </div>
+            <div className="flex items-center gap-4" aria-label="Project navigation">
+              <p className="text-sm tabular-nums opacity-70" aria-live="polite">
+                {projects.length > 0 ? `${String(activeIndex + 1).padStart(2, "0")} / ${String(projects.length).padStart(2, "0")}` : "Loading projects"}
+              </p>
+              <button type="button" onClick={showPrevious} disabled={activeIndex === 0 || projects.length === 0} aria-label="Previous project" className="flex h-12 w-12 items-center justify-center rounded-full border border-ink-foreground/25 transition-colors hover:bg-ink-foreground hover:text-ink disabled:cursor-not-allowed disabled:opacity-35">
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <button type="button" onClick={showNext} disabled={activeIndex >= projects.length - 1 || projects.length === 0} aria-label="Next project" className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-ink-foreground hover:text-ink disabled:cursor-not-allowed disabled:opacity-35">
+                <ArrowRight className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div ref={track} className="mt-10 flex gap-6 overflow-x-auto px-6 pb-4 [scrollbar-width:none] will-change-transform lg:w-max lg:overflow-visible lg:px-[max(1.5rem,calc((100vw-1440px)/2+1.5rem))]">
+        <div className="mx-auto mt-10 w-full max-w-[1440px] px-6">
+          <div className="relative overflow-hidden rounded-[2.5rem]">
+          <div className="flex transition-transform duration-700 ease-out" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
           {projects.map((project, index) => (
-            <article key={project.id} className="group relative h-[70svh] min-h-[460px] w-[86vw] shrink-0 overflow-hidden rounded-[2.5rem] lg:h-[64svh] lg:w-[min(60rem,70vw)]">
+            <article key={project.id} aria-hidden={index !== activeIndex} className="group relative h-[70svh] min-h-[460px] w-full shrink-0 overflow-hidden rounded-[2.5rem] lg:h-[64svh]">
               <img src={project.image} alt={project.imageAlt || project.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.5s] group-hover:scale-105" />
               <p className="absolute left-8 top-6 text-7xl font-medium tracking-tighter text-ink-foreground/85 md:text-8xl">{String(index + 1).padStart(2, "0")}</p>
               <div className="absolute inset-x-3 bottom-3 grid gap-6 rounded-[2rem] bg-ink/35 p-6 backdrop-blur-md md:inset-x-5 md:bottom-5 md:grid-cols-[1.4fr_1fr] md:p-8">
@@ -95,8 +82,10 @@ export function GigaProjects() {
             </article>
           ))}
           {!loaded && Array.from({ length: 3 }, (_, index) => (
-            <div key={`loading-${index}`} aria-hidden className="h-[70svh] min-h-[460px] w-[86vw] shrink-0 animate-pulse rounded-[2.5rem] bg-ink-foreground/10 lg:h-[64svh] lg:w-[min(60rem,70vw)]" />
+            <div key={`loading-${index}`} aria-hidden className="h-[70svh] min-h-[460px] w-full shrink-0 animate-pulse rounded-[2.5rem] bg-ink-foreground/10 lg:h-[64svh]" />
           ))}
+          </div>
+          </div>
         </div>
       </div>
     </section>
@@ -193,7 +182,7 @@ export function WhyNajm() {
             {s.intro && <p className="text-xl opacity-80" data-reveal>{s.intro}</p>}
           </div>
           {s.stats.length > 0 && (
-            <div className="mt-16 grid gap-x-10 gap-y-10 md:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-16 grid gap-x-10 gap-y-10 md:grid-cols-2 lg:grid-cols-5">
               {s.stats.map((stat, i) => (
                 <div key={`${stat.label}-${i}`} data-reveal>
                   {/* <p className="display-lg">{stat.value}</p> */}
@@ -228,7 +217,7 @@ export function WhyNajm() {
         </div>
       )}
 
-      <div className="bg-background px-6 py-12">
+      {/* <div className="bg-background px-6 py-12">
         <div className="mx-auto max-w-[1440px]">
           <PropertyTypeCards />
 
@@ -240,7 +229,7 @@ export function WhyNajm() {
             <TeamMembers />
           </div>
         </div>
-      </div>
+      </div> */}
     </section>
   );
 }

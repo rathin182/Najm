@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { Property } from "@/data/properties";
-import { ArrowLeft, ArrowRight, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
+import { ArrowLeft, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
 import { formatSAR, propertyDetails } from "@/data/properties";
 import { buildBrochureHtml } from "@/lib/brochure-template";
 import { EnquiryForm } from "@/components/site/EnquiryForm";
 import { PropertyCard } from "@/components/site/PropertyCard";
 import { useLiquidGlass, useReveal } from "@/components/site/motion";
+import { DynamicIcon, type IconName } from "lucide-react/dynamic";
+import { normalizeAmenity } from "@/lib/property-amenities";
 
 const DEFAULT_AGENT = { name: "Lama Al-Qahtani", phone: "+966110000000" };
 
@@ -41,9 +43,24 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
   const savedRent = inv?.annualRent;
   const annualRent = savedRent && savedRent > 0 ? savedRent : Math.round(p.price * ((p.investment?.yield ?? 0) / 100));
   const [active, setActive] = useState(0);
+  const thumbnailStrip = useRef<HTMLDivElement>(null);
+  const previousActive = useRef(0);
   const [related, setRelated] = useState<Property[]>([]);
   const countedSlug = useRef("");
   useReveal([p.id]);
+  useEffect(() => {
+    const strip = thumbnailStrip.current;
+    const thumbnail = strip?.querySelector<HTMLButtonElement>(`[data-thumbnail-index="${active}"]`);
+    if (!strip || !thumbnail) return;
+    const stripRect = strip.getBoundingClientRect();
+    const thumbnailRect = thumbnail.getBoundingClientRect();
+    const scrollingBackward = active < previousActive.current;
+    const nextScrollLeft = scrollingBackward
+      ? strip.scrollLeft + thumbnailRect.right - stripRect.right
+      : strip.scrollLeft + thumbnailRect.left - stripRect.left;
+    strip.scrollTo({ left: nextScrollLeft, behavior: "smooth" });
+    previousActive.current = active;
+  }, [active]);
   useEffect(() => {
     if (countedSlug.current === p.id) return;
     countedSlug.current = p.id;
@@ -56,7 +73,7 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
     void fetch("/api/listings?paginated=1&page=1&pageSize=3")
       .then(async (response) => response.ok ? response.json() as Promise<{ items: Property[] }> : { items: [] })
       .then((data) => { if (!cancelled) setRelated(data.items); })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, [p.id]);
   useLiquidGlass(".lg-detail", { frost: 1.5, refraction: 0.006, bevelDepth: 0.06, bevelWidth: 0.1 });
@@ -76,7 +93,7 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
       a.click();
       URL.revokeObjectURL(url);
     }
-    void fetch("/api/brochure-downloads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertySlug: p.id }), keepalive: true }).catch(() => {});
+    void fetch("/api/brochure-downloads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ propertySlug: p.id }), keepalive: true }).catch(() => { });
   };
 
   const facts = [
@@ -100,49 +117,60 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
     ["Brokerage fee (2.5%)", formatSAR(d.fee)],
     ["Est. monthly mortgage*", formatSAR(d.mortgage)],
   ];
-  const go = (dir: number) => setActive((a) => p.images.length > 1 ? (a + dir + p.images.length) % p.images.length : 0);
 
   return (
     <main className="px-4 pb-28 pt-28 md:px-6">
-      <div className="mx-auto max-w-[1440px]">
+      <div className="mx-auto w-full max-w-[1680px]">
         <Link href="/properties" className="inline-flex items-center gap-2 text-lg text-muted-foreground hover:text-primary">
           <ArrowLeft className="h-5 w-5" /> All properties
         </Link>
 
-        {/* Gallery with liquid glass overlay */}
-        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_220px]">
-          <div className="relative aspect-[16/10] overflow-hidden rounded-[2.5rem] bg-cream lg:aspect-auto lg:h-[min(72svh,720px)]">
-            <img key={active} src={p.images[active]} alt={p.title} className="h-full w-full object-cover animate-in fade-in duration-700" />
-            <div className="absolute inset-x-4 bottom-4 md:inset-x-6 md:bottom-6">
-              <span aria-hidden className="lg-detail glass-clear pointer-events-none absolute inset-0 rounded-[1.75rem]" />
-              <div className="relative z-10 flex flex-wrap items-center justify-between gap-4 rounded-[1.75rem] bg-ink/20 px-6 py-4 text-ink-foreground">
-                <div>
-                  <p className="flex items-center gap-2 text-sm opacity-85"><MapPin className="h-4 w-4" />{p.district}, {p.city}</p>
-                  <p className="mt-1 text-2xl font-medium tracking-tight md:text-3xl">{formatSAR(p.price)}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="mr-2 text-sm opacity-85">{active + 1} / {p.images.length}</span>
-                  <button onClick={() => go(-1)} aria-label="Previous photo" className="flex h-11 w-11 items-center justify-center rounded-full bg-background/90 text-foreground hover:bg-primary hover:text-primary-foreground"><ArrowLeft className="h-5 w-5" /></button>
-                  <button onClick={() => go(1)} aria-label="Next photo" className="flex h-11 w-11 items-center justify-center rounded-full bg-background/90 text-foreground hover:bg-primary hover:text-primary-foreground"><ArrowRight className="h-5 w-5" /></button>
-                </div>
-              </div>
+        {/* Gallery and enquiry panel */}
+        <div className="mt-1 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="min-w-0">
+            <div className="relative aspect-[16/10] min-h-0 overflow-hidden rounded-[2rem] bg-cream lg:aspect-[16/9]">
+              <img key={active} src={p.images[active]} alt={p.title} className="h-full w-full object-cover animate-in fade-in duration-700" />
+            </div>
+            <div ref={thumbnailStrip} className="mt-3 flex gap-3 overflow-x-auto scrollbar-hidden pb-2">
+              {p.images.map((img, imageIndex) => {
+                return (
+                  <button key={`${img}-${imageIndex}`} data-thumbnail-index={imageIndex} onClick={() => setActive(imageIndex)} aria-label={`View photo ${imageIndex + 1}`} aria-current={imageIndex === active ? "true" : undefined} className={`group relative aspect-[4/3] w-32 shrink-0 overflow-hidden rounded-[1.25rem] bg-cream sm:w-40 lg:w-48 ${imageIndex === active ? "outline outline-2 outline-primary outline-offset-[-2px]" : ""}`}>
+                    <img src={img} alt={`${p.title} view ${imageIndex + 1}`} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  </button>
+                );
+              })}
             </div>
           </div>
-          <div className="flex gap-4 lg:flex-col">
-            {p.images.map((img, i) => (
-              <button key={i} onClick={() => setActive(i)}
-                className={`aspect-square flex-1 overflow-hidden rounded-[1.5rem] transition-all lg:aspect-auto lg:flex-1 ${i === active ? "opacity-100 ring-4 ring-primary ring-offset-2 ring-offset-background" : "opacity-55 hover:opacity-100"}`}>
-                <img src={img} alt={`${p.title} view ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
+          <aside className="w-full lg:sticky lg:top-28 lg:self-start">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-[2rem] bg-cream p-5">
+              <div>
+                <p className="text-sm text-muted-foreground">Asking price</p>
+                <p className="mt-1 text-2xl font-medium tracking-tight">{formatSAR(p.price)}</p>
+              </div>
+              <button onClick={downloadBrochure} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                <Download className="h-4 w-4" /> Download brochure
               </button>
-            ))}
-          </div>
-        </div>
+            </div>
+            <div className="overflow-hidden rounded-[2.5rem] bg-background shadow-soft">
+              <div className="bg-primary p-8 text-primary-foreground">
+                <h2 className="display-md"><span className="fancy !text-primary-foreground">Enquire</span></h2>
+                <p className="mt-3 text-lg opacity-80">Arrange a private viewing or request the full information pack.</p>
+              </div>
+              <div className="p-8">
+                <EnquiryForm cta="Request viewing" defaultMessage={`I'm interested in ${p.title}.`} propertyId={p.id} propertyTitle={p.title} />
+              </div>
+            </div>
+            <AgentCard p={p} />
+          </aside>
 
-        <div className="mt-14 grid gap-14 lg:grid-cols-[1fr_420px]">
+        <div className="mt-10 lg:col-start-1">
           <div className="min-w-0">
             <h1 className="display-lg"><span className="fancy">{p.title.split(" ")[0]}</span> {p.title.split(" ").slice(1).join(" ")}</h1>
             <p className="mt-4 text-xl text-muted-foreground">{p.short}</p>
-            {p.investment && (
+            {/* <button onClick={downloadBrochure} className="mt-6 inline-flex min-h-12 items-center gap-3 rounded-full bg-primary px-7 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+              <Download className="h-5 w-5" /> Download brochure
+            </button> */}
+            {/* {p.investment && (
               <div className="mt-8 flex flex-wrap items-center gap-6 rounded-[2rem] bg-primary p-6 text-primary-foreground md:p-8">
                 <p className="display-md">{p.investment.yield}%</p>
                 <div>
@@ -150,7 +178,7 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
                   <p className="opacity-75">{p.investment.label}</p>
                 </div>
               </div>
-            )}
+            )} */}
 
             <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
               {facts.map((f) => (
@@ -195,7 +223,7 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
             </Block>
 
             {p.investment && (
-            <Block title="Investment" rest=" snapshot">
+              <Block title="Investment" rest=" snapshot">
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   {[
                     ["Est. annual rent", formatSAR(annualRent)],
@@ -235,13 +263,15 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
 
             <Block title="Amenities">
               <ul className="grid gap-3 sm:grid-cols-2">
-                {p.amenities.map((a) => (
-                  <li key={a} className="flex items-center gap-3 rounded-2xl bg-cream px-5 py-4 text-lg"><Check className="h-5 w-5 text-primary" />{a}</li>
-                ))}
+                {p.amenities.map((value, index) => {
+                  const amenity = normalizeAmenity(value);
+                  return <li key={`${amenity.name}-${index}`} className="flex items-center gap-3 rounded-2xl bg-cream px-5 py-4 text-lg"><DynamicIcon name={amenity.icon as IconName} className="h-5 w-5 shrink-0 text-primary" />{amenity.name}</li>;
+                })}
               </ul>
             </Block>
 
-            <Block title="Costs" rest=" & payment">
+            {/* Cost and Payment */}
+            {/* <Block title="Costs" rest=" & payment">
               <div className="grid gap-4 md:grid-cols-[1.4fr_1fr]">
                 <div className="rounded-[2rem] bg-cream p-6">
                   {costs.map(([k, v]) => (
@@ -262,7 +292,7 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
                   </div>
                 </div>
               </div>
-            </Block>
+            </Block> */}
 
             <Block title="Location">
               <div className="grid gap-4 md:grid-cols-[1.5fr_1fr]">
@@ -288,31 +318,17 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
               </div>
             </Block>
 
-            <button onClick={downloadBrochure} className="mt-14 flex items-center gap-3 rounded-full bg-primary px-8 py-4 text-lg text-primary-foreground transition-colors hover:bg-ink">
-              <Download className="h-5 w-5" /> Download brochure
-            </button>
           </div>
 
-          <aside className="lg:sticky lg:top-28 lg:self-start">
-            <div className="overflow-hidden rounded-[2.5rem] bg-background shadow-soft">
-              <div className="bg-primary p-8 text-primary-foreground">
-                <h2 className="display-md"><span className="fancy !text-primary-foreground">Enquire</span></h2>
-                <p className="mt-3 text-lg opacity-80">Arrange a private viewing or request the full information pack.</p>
-              </div>
-              <div className="p-8">
-                <EnquiryForm cta="Request viewing" defaultMessage={`I'm interested in ${p.title}.`} propertyId={p.id} propertyTitle={p.title} />
-              </div>
-            </div>
-            <AgentCard p={p} />
-          </aside>
         </div>
 
-        <section className="mt-28">
+        <section className="mt-28 lg:col-start-1">
           <h2 className="display-lg"><span className="fancy">Similar</span> homes</h2>
           <div className="mt-14 grid gap-x-8 gap-y-16 md:grid-cols-2 lg:grid-cols-3">
             {related.filter((x) => x.id !== p.id).slice(0, 3).map((x) => <PropertyCard key={x.id} p={x} />)}
           </div>
         </section>
+        </div>
       </div>
     </main>
   );

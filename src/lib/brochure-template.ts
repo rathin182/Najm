@@ -1,4 +1,5 @@
 import { formatSAR, propertyDetails, type Property } from "@/data/properties";
+import { normalizeAmenity } from "@/lib/property-amenities";
 
 type Details = ReturnType<typeof propertyDetails>;
 
@@ -100,7 +101,7 @@ export function buildBrochureHtml(p: Property, d: Details, origin: string): stri
       <div class="facts">${facts.map(([k, v]) => `<div class="fact"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
     </div>
     ${gallery.length ? `<div class="gallery">${gallery.map((g) => `<div style="background-image:url('${esc(abs(g, origin))}')"></div>`).join("")}</div>` : ""}
-    <div class="sec"><h2>Amenities</h2><div class="amen">${p.amenities.map((a) => `<span>${esc(a)}</span>`).join("")}</div></div>
+    <div class="sec"><h2>Amenities</h2><div class="amen">${p.amenities.map((value) => `<span>${esc(normalizeAmenity(value).name)}</span>`).join("")}</div></div>
   </div>
   <div class="foot"><span>Najm Estate · hello@najmestate.sa</span><span>+966 11 000 0000</span></div>
 </section>

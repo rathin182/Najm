@@ -8,7 +8,7 @@ import {
 export const dynamic = "force-dynamic";
 
 // Public data for the site footer: contact details managed in
-// Admin → Contact info, and the cities that currently have live listings.
+// Admin → Contact info and Admin → Locations.
 export async function GET() {
   let contact = DEFAULT_CONTACT_SETTINGS;
 
@@ -27,14 +27,12 @@ export async function GET() {
   let cities: string[] = [];
 
   try {
-    const rows = await prisma.listing.findMany({
-      where: { status: "LIVE" },
-      select: { city: true },
-      distinct: ["city"],
-      orderBy: { city: "asc" },
+    const rows = await prisma.location.findMany({
+      select: { name: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       take: 8,
     });
-    cities = rows.map((row) => row.city).filter(Boolean);
+    cities = rows.map((row) => row.name).filter(Boolean);
   } catch (error) {
     console.error("Footer cities failed:", error);
   }

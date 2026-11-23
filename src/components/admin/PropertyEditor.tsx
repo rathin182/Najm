@@ -5,18 +5,20 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home, ImagePlus, MapPin, Maximize, Plus, Star, X, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
-import { CITIES, formatSAR, propertyDetails, type Property } from "@/data/properties";
+import { formatSAR, propertyDetails, type Property } from "@/data/properties";
 import { COUNTRIES, DEFAULT_COUNTRY, flagEmoji, joinPhone, splitPhone } from "@/lib/country-codes";
 import { newId, useAdmin, type AdminProperty, type Pair, type PropertyExtra } from "@/lib/admin-store";
 import { CATEGORY_TYPES } from "@/lib/property-categories";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
 import { CATEGORY_GROUPS } from "@/lib/home-search-options";
 import { SavingOverlay } from "@/components/admin/EditorParts";
+import { PropertyAmenitiesEditor } from "@/components/admin/PropertyAmenitiesEditor";
+import { normalizeAmenity } from "@/lib/property-amenities";
 
 export function blankProperty(): AdminProperty {
   return {
-    id: newId(), title: "", city: "Riyadh", district: "", type: "Villa", price: 0, area: 0, beds: 0, baths: 0,
-    short: "", description: "", images: [], status: "Ready", year: new Date().getFullYear(), amenities: [], views: 0, published: true,
+    id: newId(), title: "", city: "", district: "", type: "Villa", price: 0, area: 0, beds: 0, baths: 0,
+    short: "", description: "", images: [], status: "Ready", year: new Date().getFullYear(), amenities: [], featuredPlacement: "PROPERTIES", views: 0, published: true,
   };
 }
 
@@ -55,9 +57,10 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const router = useRouter();
   const [loadedFromApi, setLoadedFromApi] = useState(false);
   const isNew = !properties.some((p) => p.id === initial.id) && !loadedFromApi;
-  const [p, setP] = useState<AdminProperty>(initial);
+  const [p, setP] = useState<AdminProperty>(() => ({ ...initial, amenities: initial.amenities.map(normalizeAmenity) }));
   const [category, setCategory] = useState<keyof typeof EDITOR_CATEGORY_TYPES>(p.type === "Commercial" ? "Commercial" : "Residential");
   const [categoryTypes, setCategoryTypes] = useState<{ Commercial: string[]; Residential: string[] }>({ Commercial: [...EDITOR_CATEGORY_TYPES.Commercial], Residential: [...EDITOR_CATEGORY_TYPES.Residential] });
+  const [locationOptions, setLocationOptions] = useState<string[]>([]);
   const [x, setX] = useState<PropertyExtra>(() => extraFor(initial));
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("Saving changes…");
@@ -72,6 +75,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
           Residential: options[CATEGORY_GROUPS.residential].map((option) => option.value),
           Commercial: options[CATEGORY_GROUPS.commercial].map((option) => option.value),
         });
+        setLocationOptions(options.locations.map((option) => option.value));
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
@@ -94,17 +98,34 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const setE = <K extends keyof PropertyExtra>(k: K, v: PropertyExtra[K]) => setX((c) => ({ ...c, [k]: v }));
 
   const save = async () => {
-    const missing = [!p.title.trim() && "title", !p.district.trim() && "district", p.price <= 0 && "price", p.area <= 0 && "area", p.images.length === 0 && "a photo", p.investment && !((p.investment.yield ?? 0) > 0) && "gross yield (investment)", p.investment && !((x.annualRent ?? 0) > 0) && "estimated annual rent (investment)"].filter(Boolean);
+    const missing = [!p.title.trim() && "title", !locationOptions.some((location) => location.toLowerCase() === p.city.trim().toLowerCase()) && "a location from Admin → Locations", !p.district.trim() && "district", p.price <= 0 && "price", p.area <= 0 && "area", p.images.length === 0 && "a photo", p.investment && !((p.investment.yield ?? 0) > 0) && "gross yield (investment)", p.investment && !((x.annualRent ?? 0) > 0) && "estimated annual rent (investment)"].filter(Boolean);
     if (missing.length) { toast.error(`Please add ${missing.join(", ")}`); return; }
     const clean = (l: Pair[]) => l.filter(([a, b]) => a.trim() || b.trim());
     let navigating = false;
     setBusyLabel(isNew ? "Creating property…" : "Saving changes…");
     setBusy(true);
     try {
-      const property = { ...p, description: p.description || p.short, details: { ...x, annualRent: p.investment ? x.annualRent : undefined, priceGrowth5yr: p.investment ? x.priceGrowth5yr : undefined, rooms: clean(x.rooms), nearby: clean(x.nearby), plan: clean(x.plan), bathrooms: clean(bathrooms) } };
+      const property = { ...p, amenities: p.amenities.map(normalizeAmenity).filter((amenity) => amenity.name.trim()).map((amenity) => ({ ...amenity, name: amenity.name.trim() })), description: p.description || p.short, details: { ...x, annualRent: p.investment ? x.annualRent : undefined, priceGrowth5yr: p.investment ? x.priceGrowth5yr : undefined, rooms: clean(x.rooms), nearby: clean(x.nearby), plan: clean(x.plan), bathrooms: clean(bathrooms) } };
       const response = await fetch("/api/admin/listings", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(property) });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error ?? "Could not save property.");
+      if (!response.ok) {
+        const validationDetails = Array.isArray(result.issues)
+          ? result.issues
+              .map((issue: { field?: unknown; message?: unknown }) => {
+                const field = typeof issue.field === "string" ? issue.field : "";
+                const message = typeof issue.message === "string" ? issue.message : "";
+                return [field, message].filter(Boolean).join(": ");
+              })
+              .filter(Boolean)
+              .join("\n")
+          : "";
+        if (validationDetails) {
+          toast.error(result.error ?? "Could not save property.", { description: validationDetails, duration: 12000 });
+        } else {
+          toast.error(result.error ?? "Could not save property.");
+        }
+        return;
+      }
       saveProperty(result as AdminProperty);
       toast.success(isNew ? "Property added" : "Changes saved");
       navigating = true; router.push("/admin/properties");
@@ -203,7 +224,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
               </div>
             </div>
             <F label="Status"><select className="field" value={p.status} onChange={(e) => set("status", e.target.value as Property["status"])}><option>Ready</option><option>Off-plan</option></select></F>
-            <F label="City"><select className="field" value={p.city} onChange={(e) => set("city", e.target.value)}>{CITIES.map((c) => <option key={c}>{c}</option>)}</select></F>
+            <F label="City / location"><select className="field" value={locationOptions.find((location) => location.toLowerCase() === p.city.trim().toLowerCase()) ?? ""} onChange={(e) => set("city", e.target.value)}><option value="" disabled>Select a location</option>{locationOptions.map((location) => <option key={location} value={location}>{location}</option>)}</select>{p.city && !locationOptions.some((location) => location.toLowerCase() === p.city.trim().toLowerCase()) && <span className="text-xs text-destructive">“{p.city}” is not in Locations. Choose a managed location before saving.</span>}</F>
             <F label="District"><input className="field" value={p.district} onChange={(e) => set("district", e.target.value)} placeholder="e.g. Al Malqa" /></F>
             <F label="Year built / completion"><input className="field" type="number" value={p.year} onChange={(e) => set("year", Number(e.target.value))} /></F>
             <F label="Developer"><input className="field" value={x.developer} onChange={(e) => setE("developer", e.target.value)} /></F>
@@ -237,8 +258,8 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
 
           <RoomsLivingSpaces list={x.rooms} onChange={(v) => setE("rooms", v)} bathrooms={bathrooms} onBathroomsChange={setBathrooms} />
 
-          <Section title="Amenities" hint="Press Enter to add each one.">
-            <Tags label="Amenities" list={p.amenities} onChange={(v) => set("amenities", v)} placeholder="Private pool, smart home…" />
+          <Section title="Amenities" hint="Add a name and choose its Lucide icon.">
+            <PropertyAmenitiesEditor values={p.amenities} onChange={(v) => set("amenities", v)} />
             <Tags label="Features & finishes" list={x.features} onChange={(v) => setE("features", v)} placeholder="Italian marble, Miele kitchen…" />
           </Section>
 
@@ -278,7 +299,20 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
 
           <Section title="Visibility">
             <label className="flex items-center justify-between gap-4 rounded-2xl bg-cream p-5 sm:col-span-2"><span><span className="block font-medium">Live on website</span><span className="text-sm text-muted-foreground">Hidden listings stay in the admin only.</span></span><Switch checked={p.published} onCheckedChange={(v) => set("published", v)} /></label>
-            <label className="flex items-center justify-between gap-4 rounded-2xl bg-cream p-5 sm:col-span-2"><span><span className="block font-medium">Featured on home page</span><span className="text-sm text-muted-foreground">Appears in the Featured homes grid.</span></span><Switch checked={!!p.featured} onCheckedChange={(v) => set("featured", v)} /></label>
+            <label className="flex items-center justify-between gap-4 rounded-2xl bg-cream p-5 sm:col-span-2"><span><span className="block font-medium">Featured on home page</span><span className="text-sm text-muted-foreground">Show this listing in a featured section on the home page.</span></span><Switch checked={!!p.featured} onCheckedChange={(v) => set("featured", v)} /></label>
+            {p.featured && (
+              <fieldset className="rounded-2xl bg-cream p-5 sm:col-span-2">
+                <legend className="px-1 text-sm text-muted-foreground">Show this featured listing as</legend>
+                <div className="mt-2 flex flex-wrap gap-6">
+                  {([['PROPERTIES', 'Properties'], ['PROJECTS', 'Projects']] as const).map(([value, label]) => (
+                    <label key={value} className="flex cursor-pointer items-center gap-2">
+                      <input type="radio" name="featuredPlacement" value={value} checked={p.featuredPlacement === value} onChange={() => set("featuredPlacement", value)} className="accent-primary" />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
           </Section>
         </div>
 

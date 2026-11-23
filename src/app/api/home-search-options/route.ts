@@ -12,22 +12,15 @@ export async function GET() {
   // return NextResponse.json(groupHomeSearchOptions(rows), {
   //   headers: { "Cache-Control": "no-store" },
   // });
-  const [rows, cityRows] = await Promise.all([
+  const [rows, locations] = await Promise.all([
     prisma.homeSearchOption.findMany({
       where: { enabled: true },
       orderBy: [{ group: "asc" }, { position: "asc" }],
     }),
-    prisma.listing.findMany({ where: { status: "LIVE" }, select: { city: true }, distinct: ["city"], orderBy: { city: "asc" } }),
+    prisma.location.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }] }),
   ]);
   const options = groupHomeSearchOptions(rows);
-  // Locations = the admin's list plus any city that has a live listing.
-  const known = new Set(options.locations.map((option) => option.value.trim().toLowerCase()));
-  for (const { city } of cityRows) {
-    const name = city?.trim();
-    if (!name || known.has(name.toLowerCase())) continue;
-    known.add(name.toLowerCase());
-    options.locations.push({ value: name, label: name });
-  }
+  options.locations = locations.map(({ id, name, featured, image, sortOrder }) => ({ id, value: name, label: name, featured, image, sortOrder }));
   return NextResponse.json(options, {
     headers: { "Cache-Control": "no-store" },
   });

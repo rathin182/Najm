@@ -36,7 +36,7 @@ const EMPTY_OPTIONS: HomeSearchOptions = {
 };
 
 // For these groups the filter value must equal the name stored on listings, so it simply follows the label.
-const VALUE_FOLLOWS_LABEL: HomeSearchGroup[] = ["locations", "residentialTypes", "commercialTypes"];
+const VALUE_FOLLOWS_LABEL: HomeSearchGroup[] = ["residentialTypes", "commercialTypes"];
 
 async function readJson(response: Response) {
   return response.json().catch(() => null) as Promise<unknown>;

@@ -22,7 +22,7 @@ export type PropertyExtra = {
   /** 5-year price growth in % — shown in the investment snapshot when set. */
   priceGrowth5yr?: number;
 };
-export type AdminProperty = Property & { views: number; published: boolean; details?: PropertyExtra };
+export type AdminProperty = Property & { featuredPlacement: "PROPERTIES" | "PROJECTS"; views: number; published: boolean; details?: PropertyExtra };
 
 type Data = { properties: AdminProperty[]; enquiries: Enquiry[]; contacts: Contact[]; staff: Staff[] };
 
@@ -37,7 +37,7 @@ const MSGS = ["Is this still available? I'd like a viewing this weekend.", "Can 
 const SOURCES = ["Property page", "Home contact form", "Contact page", "Brochure download", "Phone call"];
 
 export function seed(): Data {
-  const properties = PROPERTIES.map((p, i) => ({ ...p, views: 4200 - i * 310 + ((i * 977) % 600), published: true }));
+  const properties = PROPERTIES.map((p, i) => ({ ...p, featuredPlacement: p.featuredPlacement ?? "PROPERTIES" as const, views: 4200 - i * 310 + ((i * 977) % 600), published: true }));
   const statuses: EnquiryStatus[] = ["New", "New", "Contacted", "Viewing", "New", "Closed"];
   const enquiries: Enquiry[] = Array.from({ length: 18 }, (_, i) => {
     const n = NAMES[i % NAMES.length]!;
@@ -99,6 +99,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) d = { ...seed(), ...JSON.parse(raw) };
+      d.properties = d.properties.map((property) => ({ ...property, featuredPlacement: property.featuredPlacement ?? "PROPERTIES" }));
       const inbox = JSON.parse(localStorage.getItem(INBOX) || "[]");
       if (inbox.length) { d.enquiries = [...inbox.reverse(), ...d.enquiries]; localStorage.removeItem(INBOX); }
     } catch { /* ignore */ }
@@ -121,7 +122,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const syncFromOtherTab = (event: StorageEvent) => {
       if (event.key !== KEY || !event.newValue) return;
-      try { setData({ ...seed(), ...JSON.parse(event.newValue) }); } catch { /* ignore invalid stored data */ }
+      try {
+        const stored = { ...seed(), ...JSON.parse(event.newValue) } as Data;
+        stored.properties = stored.properties.map((property) => ({ ...property, featuredPlacement: property.featuredPlacement ?? "PROPERTIES" }));
+        setData(stored);
+      } catch { /* ignore invalid stored data */ }
     };
     window.addEventListener("storage", syncFromOtherTab);
     return () => window.removeEventListener("storage", syncFromOtherTab);

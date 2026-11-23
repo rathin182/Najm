@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 let resolveIntro: () => void = () => {};
 export const introDone: Promise<void> =
@@ -21,17 +21,38 @@ const STRIPES = ["bg-background", "bg-primary", "bg-background", "bg-primary"];
 type BeatTimeline = { kill: () => void; to: (...args: unknown[]) => BeatTimeline };
 export function PageTransition() {
   const pathname = usePathname();
+  const routeAtLoad = useRef(pathname);
   const root = useRef<HTMLDivElement>(null);
   const [label, setLabel] = useState("Najm");
   const [count, setCount] = useState(0);
   const [intro, setIntro] = useState(true);
   const busy = useRef(false);
   const beat = useRef<BeatTimeline | null>(null);
+  const homeRequestStats = useRef({ started: 0, completed: 0, pending: 0 });
+
+  useLayoutEffect(() => {
+    if (pathname !== "/") return;
+    const originalFetch = window.fetch;
+    const stats = homeRequestStats.current;
+    window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (!url.startsWith("/api/") && !url.startsWith(`${window.location.origin}/api/`)) {
+        return originalFetch.call(window, input, init);
+      }
+      stats.started += 1;
+      stats.pending += 1;
+      return originalFetch.call(window, input, init).finally(() => {
+        stats.completed += 1;
+        stats.pending -= 1;
+      });
+    }) as typeof window.fetch;
+    return () => { window.fetch = originalFetch; };
+  }, [pathname]);
 
   const stripes = () => Array.from(root.current?.querySelectorAll<HTMLElement>("[data-stripe]") ?? []);
   const text = () => root.current?.querySelector<HTMLElement>("[data-label]");
   useEffect(() => {
-    if (hasSeenIntro()) {
+    if (routeAtLoad.current !== "/" && hasSeenIntro()) {
       setIntro(false);
       if (root.current) root.current.style.visibility = "hidden";
       resolveIntro();
@@ -42,16 +63,37 @@ export function PageTransition() {
     (async () => {
       const { gsap } = await import("gsap");
       if (cancelled) return;
-      const c = { v: 0 };
-      // Keep the counter as a short visual cue, but don't gate the app on
-      // window.load: that event waits for every image and other page resource.
-      await new Promise<void>((r) => gsap.to(c, {
-        v: 100,
-        duration: 0.8,
-        ease: "power2.inOut",
-        onUpdate: () => setCount(Math.round(c.v)),
-        onComplete: r,
-      }));
+      if (routeAtLoad.current === "/") {
+        let lastStarted = -1;
+        let quietSince = 0;
+        while (!cancelled) {
+          const { started, completed, pending } = homeRequestStats.current;
+          if (started !== lastStarted) {
+            lastStarted = started;
+            quietSince = 0;
+          }
+          if (started > 0 && pending === 0) {
+            if (!quietSince) quietSince = performance.now();
+            if (performance.now() - quietSince >= 250) break;
+          } else {
+            quietSince = 0;
+          }
+          if (started > 0) setCount((value) => Math.max(value, Math.min(90, Math.floor((completed / (completed + pending)) * 90))));
+          await new Promise((resolve) => window.setTimeout(resolve, 50));
+        }
+        if (cancelled) return;
+        setCount(100);
+        await new Promise((resolve) => window.setTimeout(resolve, 200));
+      } else {
+        const c = { v: 0 };
+        await new Promise<void>((r) => gsap.to(c, {
+          v: 100,
+          duration: 0.8,
+          ease: "power2.inOut",
+          onUpdate: () => setCount(Math.round(c.v)),
+          onComplete: r,
+        }));
+      }
       if (cancelled) return;
       await new Promise<void>((r) => gsap.timeline({ onComplete: r })
         .to(text()!, { yPercent: -120, opacity: 0, duration: 0.5, ease: "power3.in" })
@@ -76,7 +118,7 @@ export function PageTransition() {
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden text-ink">
         <div data-label className="text-center">
           <p className="fancy !text-ink text-[clamp(4rem,12vw,10rem)]">{intro ? "Najm" : label}</p>
-          {intro && <p className="mt-4 text-lg tabular-nums tracking-[0.3em] opacity-70">{String(count).padStart(3, "0")}</p>}
+          {intro && <p className="mt-4 text-lg tabular-nums tracking-[0.3em] opacity-70">{count}</p>}
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Eye, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
-import { CITIES, TYPES, formatSAR } from "@/data/properties";
+import { TYPES, formatSAR } from "@/data/properties";
 import { useAdmin } from "@/lib/admin-store";
 import { PageHeader, Panel } from "@/components/admin/AdminShell";
 
@@ -13,6 +13,7 @@ function PropertiesAdmin() {
   const { properties, saveProperty, deleteProperty, can } = useAdmin();
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
+  const [cityOptions, setCityOptions] = useState<string[]>([]);
   const [type, setType] = useState("");
 
   useEffect(() => {
@@ -21,6 +22,18 @@ function PropertiesAdmin() {
       if (!response.ok) throw new Error("Could not load listings.");
       return response.json();
     }).then((listings) => { if (!cancelled && Array.isArray(listings)) listings.forEach((property) => saveProperty(property)); }).catch(() => toast.error("Could not load saved listings."));
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/locations", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not load locations.");
+        return response.json() as Promise<Array<{ name: string }>>;
+      })
+      .then((locations) => { if (!cancelled) setCityOptions(locations.map((location) => location.name)); })
+      .catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
 
@@ -36,7 +49,7 @@ function PropertiesAdmin() {
           <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search listings" className="field !bg-background pl-10" />
         </label>
-        <select value={city} onChange={(e) => setCity(e.target.value)} className="field !w-auto !bg-background"><option value="">All cities</option>{CITIES.map((c) => <option key={c}>{c}</option>)}</select>
+        <select value={city} onChange={(e) => setCity(e.target.value)} className="field !w-auto !bg-background"><option value="">All locations</option>{cityOptions.map((location) => <option key={location}>{location}</option>)}</select>
         <select value={type} onChange={(e) => setType(e.target.value)} className="field !w-auto !bg-background"><option value="">All types</option>{TYPES.map((c) => <option key={c}>{c}</option>)}</select>
       </div>
 

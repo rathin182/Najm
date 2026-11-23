@@ -1,6 +1,7 @@
 import type { Listing, ListingMedia } from "@/generated/prisma/client";
 import type { Property } from "@/data/properties";
 import type { AdminProperty, PropertyExtra } from "@/lib/admin-store";
+import { normalizeAmenity } from "@/lib/property-amenities";
 
 type ListingWithMedia = Listing & { media: ListingMedia[] };
 
@@ -21,9 +22,10 @@ export function listingToProperty(listing: ListingWithMedia): AdminProperty {
     description: listing.description,
     images,
     featured: listing.featured,
+    featuredPlacement: listing.featuredPlacement,
     status: listing.isOffPlan ? "Off-plan" : "Ready",
     year: listing.yearBuilt ?? new Date(listing.createdAt).getFullYear(),
-    amenities: listing.amenities,
+    amenities: listing.amenities.map(normalizeAmenity),
     views: listing.viewCount,
     published: listing.status === "LIVE",
     details: { ...details, video: listing.media.find((media) => media.kind === "VIDEO_LINK" || media.kind === "VIDEO_UPLOAD")?.externalUrl ?? details.video ?? "" } as PropertyExtra,

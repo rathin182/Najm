@@ -58,8 +58,7 @@ function AgentCard({ p, onSubmitEnquiry, onRequestCallback }: { p: Property; onS
   );
 }
 
-export default function PropertyDetailClient({ initialProperty }: { initialProperty: Property }) {
-  const p = initialProperty.images.length > 0 ? initialProperty : { ...initialProperty, images: ["/images/hero.jpg"] };
+export default function PropertyDetailClient({ initialProperty }: { initialProperty: Property }) {  const p = initialProperty.images.length > 0 ? initialProperty : { ...initialProperty, images: ["/images/hero.jpg"] };
   const d = propertyDetails(p);
   const inv = (p as { details?: { annualRent?: number; priceGrowth5yr?: number; serviceCharge?: number } }).details;
   const savedRent = inv?.annualRent;

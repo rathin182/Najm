@@ -23,12 +23,15 @@ export function PageTransition() {
   const pathname = usePathname();
   const routeAtLoad = useRef(pathname);
   const root = useRef<HTMLDivElement>(null);
+  const routeRoot = useRef<HTMLDivElement>(null);
   const [label, setLabel] = useState("Najm");
   const [count, setCount] = useState(0);
   const [intro, setIntro] = useState(true);
   const busy = useRef(false);
   const beat = useRef<BeatTimeline | null>(null);
   const homeRequestStats = useRef({ started: 0, completed: 0, pending: 0 });
+  const previousPath = useRef(pathname);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   useLayoutEffect(() => {
     if (pathname !== "/") return;
@@ -107,9 +110,27 @@ export function PageTransition() {
   }, []);
 
   useEffect(() => {
-    if (!busy.current) return;
+    if (previousPath.current === pathname) return;
+    previousPath.current = pathname;
+    setLabel(labelFor(pathname));
+    setRouteLoading(true);
     window.scrollTo(0, 0);
-    busy.current = false;
+
+    // The pathname changes when Next has committed the destination route.
+    // Keep the overlay visible briefly so the transition reads as intentional.
+    const timeout = window.setTimeout(() => {
+      const overlay = routeRoot.current;
+      if (!overlay) {
+        setRouteLoading(false);
+        return;
+      }
+      const animation = overlay.animate(
+        [{ opacity: 1 }, { opacity: 0 }],
+        { duration: 260, easing: "ease-out", fill: "forwards" },
+      );
+      animation.onfinish = () => setRouteLoading(false);
+    }, 180);
+    return () => window.clearTimeout(timeout);
   }, [pathname]);
 
   return (
@@ -121,6 +142,20 @@ export function PageTransition() {
           {intro && <p className="mt-4 text-lg tabular-nums tracking-[0.3em] opacity-70">{count}</p>}
         </div>
       </div>
+      {routeLoading && (
+        <div
+          ref={routeRoot}
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center bg-background/35 text-ink backdrop-blur-xl"
+        >
+          <div className="rounded-3xl border border-white/50 bg-white/55 px-10 py-8 text-center shadow-xl backdrop-blur-2xl">
+            <span className="mx-auto mb-5 block h-8 w-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" aria-hidden="true" />
+            <p className="fancy text-4xl">Loading</p>
+            <p className="mt-2 text-sm tracking-[0.2em] text-muted-foreground">{label}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

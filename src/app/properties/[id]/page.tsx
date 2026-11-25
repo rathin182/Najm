@@ -14,7 +14,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   if (!property) {
     const listing = await prisma.listing.findFirst({
       where: { slug, status: "LIVE" },
-      include: { media: { orderBy: { position: "asc" } } },
+      include: { media: { orderBy: { position: "asc" } }, agent: true },
     });
     if (listing) property = listingToProperty(listing);
   }

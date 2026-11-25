@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { ArrowUpRight, Bath, BedDouble, MapPin, Maximize } from "lucide-react";
 import { formatSAR, type Property } from "@/data/properties";
+import { PropertyCardLink } from "@/components/site/PropertyCardLink";
 
 export function PropertyCard({ p }: { p: Property }) {
+  const href = `/properties/${p.id}`;
   return (
-    <Link href={`/properties/${p.id}`} className="group block" data-reveal>
+    <PropertyCardLink href={href} className="group block">
       <div className="relative aspect-[4/3.4] overflow-hidden rounded-[1.75rem] bg-secondary">
         <img src={p.images[0]} alt={p.title} loading="lazy" width={1024} height={800}
           className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]" />
@@ -23,6 +24,6 @@ export function PropertyCard({ p }: { p: Property }) {
           <span className="flex items-center gap-1.5"><Bath className="h-4 w-4 text-primary" />{p.baths} Baths</span>
         </div>
       </div>
-    </Link>
+    </PropertyCardLink>
   );
 }

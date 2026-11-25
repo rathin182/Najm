@@ -7,7 +7,7 @@ import { encodeAmenity } from "@/lib/property-amenities";
 
 const pair = z.tuple([z.string(), z.string()]);
 const propertySchema = z.object({
-  id: z.string().min(1).max(200), title: z.string().trim().min(1).max(200), city: z.string().trim().min(1).max(100), district: z.string().trim().max(150),
+  id: z.string().min(1).max(200), title: z.string().trim().min(1).max(200), city: z.string().trim().min(1).max(100), district: z.string().trim().max(150), destinationId: z.string().min(1).max(200).nullable().optional(), agentId: z.string().min(1).max(200).nullable().optional(),
   type: z.string().trim().min(1).max(100), price: z.number().int().positive(), area: z.number().positive(), beds: z.number().int().nonnegative(), baths: z.number().int().nonnegative(),
   short: z.string().max(500), description: z.string().max(20000), images: z.array(z.string().url().or(z.string().startsWith("/"))).min(1).max(50),
   featured: z.boolean().optional(), featuredPlacement: z.enum(["PROPERTIES", "PROJECTS"]).default("PROPERTIES"), investment: z.object({ yield: z.number().nonnegative(), label: z.string().max(120) }).optional(), status: z.enum(["Ready", "Off-plan"]), year: z.number().int().min(1800).max(2200),
@@ -58,6 +58,12 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (p.destinationId && !(await prisma.destination.findUnique({ where: { id: p.destinationId }, select: { id: true } }))) {
+    return Response.json({ error: "Choose a valid destination or clear the optional destination field." }, { status: 400 });
+  }
+  if (p.agentId && !(await prisma.agent.findUnique({ where: { id: p.agentId }, select: { id: true } }))) {
+    return Response.json({ error: "Choose a valid agent or clear the optional agent field." }, { status: 400 });
+  }
   // const category: PropertyCategory = p.type.toLowerCase().includes("commercial") || ["office", "shop", "showroom", "warehouse", "industrial building", "business center", "restaurant / cafe", "co-working space"].includes(p.type.toLowerCase()) ? "COMMERCIAL" : p.type.toLowerCase().includes("land") || p.type.toLowerCase().includes("plot") ? "LAND" : "RESIDENTIAL";
   const configuredCommercial = (await prisma.homeSearchOption.findMany({ where: { enabled: true, group: "commercialTypes" }, select: { value: true } })).map((row) => row.value.trim().toLowerCase());
   const typeKey = p.type.trim().toLowerCase();
@@ -70,7 +76,7 @@ export async function POST(request: Request) {
   const data = {
     ownerId: session!.user.id, slug, title: p.title, description: p.description || p.short, listingType, category, propertyType: p.type,
     price: BigInt(p.price), featured: !!p.featured, featuredPlacement: p.featuredPlacement, bedrooms: p.beds, bathrooms: p.baths, furnished: p.details?.furnishing.toLowerCase().includes("furnished") ?? false,
-    floors: Number.parseInt(p.details?.floors ?? "", 10) || null, yearBuilt: p.year, areaSqm: Math.round(p.area), locality: p.district || null, city: configuredLocation.name, state: "Saudi Arabia",
+    floors: Number.parseInt(p.details?.floors ?? "", 10) || null, yearBuilt: p.year, areaSqm: Math.round(p.area), locality: p.district || null, city: configuredLocation.name, destinationId: p.destinationId || null, agentId: p.agentId || null, state: "Saudi Arabia",
     latitude: p.details?.lat ?? null, longitude: p.details?.lng ?? null, isOffPlan: p.status === "Off-plan", amenities: p.amenities.map(encodeAmenity), keyFeatures: p.details?.features ?? [],
     projectedYield: p.investment ? String(p.investment.yield) : null, tier: p.investment?.label ?? null, badge: p.short || null, details,
     status: p.published ? "LIVE" as const : "DRAFT" as const, publishedAt: p.published ? new Date() : null,
@@ -84,7 +90,7 @@ export async function POST(request: Request) {
         : await tx.listing.create({ data: listingData });
       await tx.listingMedia.deleteMany({ where: { listingId: listing.id } });
       if (media.length) await tx.listingMedia.createMany({ data: media.map((item) => ({ ...item, listingId: listing.id })) });
-      return tx.listing.findUniqueOrThrow({ where: { id: listing.id }, include: { media: { orderBy: { position: "asc" } } } });
+      return tx.listing.findUniqueOrThrow({ where: { id: listing.id }, include: { media: { orderBy: { position: "asc" } }, agent: true } });
     });
     return Response.json(listingToProperty(result));
   } catch (cause) {

@@ -2,11 +2,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home, ImagePlus, MapPin, Maximize, Plus, Star, X, ChevronDown } from "lucide-react";
+import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home, ImagePlus, MapPin, Maximize, Plus, Star, X } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { formatSAR, propertyDetails, type Property } from "@/data/properties";
-import { COUNTRIES, DEFAULT_COUNTRY, flagEmoji, joinPhone, splitPhone } from "@/lib/country-codes";
 import { newId, useAdmin, type AdminProperty, type Pair, type PropertyExtra } from "@/lib/admin-store";
 import { CATEGORY_TYPES } from "@/lib/property-categories";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
@@ -14,6 +13,9 @@ import { CATEGORY_GROUPS } from "@/lib/home-search-options";
 import { SavingOverlay } from "@/components/admin/EditorParts";
 import { PropertyAmenitiesEditor } from "@/components/admin/PropertyAmenitiesEditor";
 import { normalizeAmenity } from "@/lib/property-amenities";
+
+type DestinationOption = { id: string; name: string };
+type AgentOption = { id: string; name: string; verified: boolean };
 
 export function blankProperty(): AdminProperty {
   return {
@@ -61,6 +63,8 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
   const [category, setCategory] = useState<keyof typeof EDITOR_CATEGORY_TYPES>(p.type === "Commercial" ? "Commercial" : "Residential");
   const [categoryTypes, setCategoryTypes] = useState<{ Commercial: string[]; Residential: string[] }>({ Commercial: [...EDITOR_CATEGORY_TYPES.Commercial], Residential: [...EDITOR_CATEGORY_TYPES.Residential] });
   const [locationOptions, setLocationOptions] = useState<string[]>([]);
+  const [destinations, setDestinations] = useState<DestinationOption[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
   const [x, setX] = useState<PropertyExtra>(() => extraFor(initial));
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("Saving changes…");
@@ -77,6 +81,22 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
         });
         setLocationOptions(options.locations.map((option) => option.value));
       })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/agents", { cache: "no-store", credentials: "include" })
+      .then((response) => response.ok ? response.json() as Promise<AgentOption[]> : Promise.reject())
+      .then((rows) => { if (!cancelled && Array.isArray(rows)) setAgents(rows); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/destinations", { cache: "no-store", credentials: "include" })
+      .then((response) => response.ok ? response.json() as Promise<DestinationOption[]> : Promise.reject())
+      .then((rows) => { if (!cancelled && Array.isArray(rows)) setDestinations(rows); })
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
@@ -225,6 +245,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
             </div>
             <F label="Status"><select className="field" value={p.status} onChange={(e) => set("status", e.target.value as Property["status"])}><option>Ready</option><option>Off-plan</option></select></F>
             <F label="City / location"><select className="field" value={locationOptions.find((location) => location.toLowerCase() === p.city.trim().toLowerCase()) ?? ""} onChange={(e) => set("city", e.target.value)}><option value="" disabled>Select a location</option>{locationOptions.map((location) => <option key={location} value={location}>{location}</option>)}</select>{p.city && !locationOptions.some((location) => location.toLowerCase() === p.city.trim().toLowerCase()) && <span className="text-xs text-destructive">“{p.city}” is not in Locations. Choose a managed location before saving.</span>}</F>
+            <F label="Destination (optional)"><select className="field" value={p.destinationId ?? ""} onChange={(event) => set("destinationId", event.target.value || undefined)}><option value="">No destination</option>{destinations.map((destination) => <option key={destination.id} value={destination.id}>{destination.name}</option>)}</select></F>
             <F label="District"><input className="field" value={p.district} onChange={(e) => set("district", e.target.value)} placeholder="e.g. Al Malqa" /></F>
             <F label="Year built / completion"><input className="field" type="number" value={p.year} onChange={(e) => set("year", Number(e.target.value))} /></F>
             <F label="Developer"><input className="field" value={x.developer} onChange={(e) => setE("developer", e.target.value)} /></F>
@@ -277,8 +298,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
           </Section>
 
           <Section title="Agent & SEO">
-            <F label="Listing agent"><input className="field" value={x.agentName} onChange={(e) => setE("agentName", e.target.value)} /></F>
-            <F label="Agent phone" wide><AgentPhone key={String(loadedFromApi)} value={x.agentPhone} onChange={(v) => setE("agentPhone", v)} /></F>
+            <F label="Assigned agent (optional)" wide><select className="field" value={p.agentId ?? ""} onChange={(event) => set("agentId", event.target.value || undefined)}><option value="">No assigned agent</option>{agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}{agent.verified ? " · Verified" : ""}</option>)}</select><span className="text-xs text-muted-foreground">Choose an agent from Admin → Agents. Leaving this empty is fine.</span></F>
             <F label="Search title" wide><input className="field" value={x.seoTitle} onChange={(e) => setE("seoTitle", e.target.value)} placeholder={p.title || "Shown in Google results"} /></F>
             <F label="Search description" wide><textarea className="field resize-none rounded-[1.5rem]" rows={2} value={x.seoDescription} onChange={(e) => setE("seoDescription", e.target.value)} placeholder={p.short} /></F>
           </Section>
@@ -387,37 +407,6 @@ function RoomsLivingSpaces({ list, onChange, bathrooms, onBathroomsChange }: { l
       <div className="mt-3 rounded-xl bg-cream p-3"><strong className="text-sm">Property room summary</strong><div className="mt-2 grid grid-cols-3 gap-2 text-center">{[[bedrooms, "Bedrooms"], [bathrooms.length, "Bathrooms"], [living, "Living areas"]].map(([n, label]) => <div key={label} className="rounded-lg bg-background p-2"><strong className="block text-sm">{n}</strong><span className="text-xs text-muted-foreground">{label}</span></div>)}</div></div>
     </section>
   </>;
-}
-
-/** Country-code dropdown + local number. Stores the combined value, e.g. "+966 5XXXXXXXX". */
-function AgentPhone({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const initial = splitPhone(value ?? "");
-  const [country, setCountry] = useState(initial.phoneCountry || DEFAULT_COUNTRY);
-  const [number, setNumber] = useState(initial.phoneNumber);
-  const update = (c: string, n: string) => {
-    setCountry(c);
-    setNumber(n);
-    onChange(joinPhone(c, n.replace(/^0(?!0)/, "")));
-  };
-  return (
-    <div className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-2">
-      <div className="relative min-w-0">
-        <select aria-label="Country code" className="field truncate !pr-10" value={country} onChange={(e) => update(e.target.value, number)}>
-          {COUNTRIES.map((c) => <option key={c.iso} value={c.iso}>{flagEmoji(c.iso)} {c.dial} {c.name}</option>)}
-        </select>
-        <ChevronDown className="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-      </div>
-      <input
-        type="tel"
-        inputMode="tel"
-        aria-label="Agent phone number"
-        className="field min-w-0"
-        value={number}
-        onChange={(e) => update(country, e.target.value.replace(/[^\d\s\-()]/g, ""))}
-        placeholder="5X XXX XXXX"
-      />
-    </div>
-  );
 }
 
 function Pairs({ list, onChange, a, b }: { list: Pair[]; onChange: (v: Pair[]) => void; a: string; b: string }) {

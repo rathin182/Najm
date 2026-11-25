@@ -7,7 +7,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
   const { slug } = await params;
   const listing = await prisma.listing.findUnique({
     where: { slug },
-    include: { media: { orderBy: { position: "asc" } } },
+    include: { media: { orderBy: { position: "asc" } }, agent: true },
   });
 
   if (!listing || listing.status !== "LIVE") return Response.json({ error: "Property not found." }, { status: 404 });

@@ -168,6 +168,8 @@ model Listing {
   addressLine      String?
   locality         String?
   city             String
+  destinationId    String?
+  agentId          String?
   state            String
   pincode          String?
   latitude         Float?
@@ -202,6 +204,8 @@ model Listing {
   updatedAt        DateTime         @updatedAt
 
   owner     User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  destination Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  agent       Agent?       @relation(fields: [agentId], references: [id], onDelete: SetNull)
   media     ListingMedia[]
   enquiries Enquiry[]
   saves     SavedListing[]
@@ -210,6 +214,8 @@ model Listing {
   @@index([status, city])
   @@index([status, listingType, category])
   @@index([ownerId])
+  @@index([destinationId, status])
+  @@index([agentId])
 }
 
 model ListingMedia {
@@ -383,6 +389,27 @@ model TeamMember {
   @@index([sortOrder, createdAt])
 }
 
+model Agent {
+  id               String   @id @default(cuid())
+  name             String   @db.VarChar(120)
+  role             String   @default("Property Advisor") @db.VarChar(120)
+  age              Int
+  experienceYears  Int
+  review           Float?
+  verified         Boolean  @default(false)
+  phone            String   @db.VarChar(40)
+  whatsapp         String?  @db.VarChar(40)
+  email            String   @db.VarChar(254)
+  address          String   @db.VarChar(300)
+  description      String?  @db.VarChar(1000)
+  image            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  listings         Listing[]
+
+  @@index([verified, name])
+}
+
 model AboutSection {
   id                 String   @id @default(cuid())
   type               String
@@ -483,6 +510,16 @@ model Location {
   updatedAt DateTime @updatedAt
 
   @@index([sortOrder, name])
+}
+
+model Destination {
+  id          String    @id @default(cuid())
+  name        String    @unique @db.VarChar(120)
+  image       String
+  description String    @db.VarChar(500)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  listings    Listing[]
 }
 
 enum ArticleCategory {

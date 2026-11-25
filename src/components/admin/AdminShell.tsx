@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   BadgeCheck,
+  UserRound,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,8 @@ const NAV = [
   { title: "Subscribers", url: "/admin/subscribers", icon: Mail },
   { title: "Properties", url: "/admin/properties", icon: Building2 },
   { title: "Locations", url: "/admin/locations", icon: MapPin },
+  { title: "Destinations", url: "/admin/destinations", icon: MapPin },
+  { title: "Agents", url: "/admin/agents", icon: UserRound },
   { title: "Homepage Search", url: "/admin/search-filters", icon: SlidersHorizontal },
   { title: "Future Projects", url: "/admin/future-projects", icon: Rocket },
   { title: "About & Team", url: "/admin/about", icon: Info },
@@ -104,7 +107,7 @@ function AppSidebar() {
           <SidebarGroupLabel>Manage</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {NAV.filter((n) => n.title !== "Staff" || can.staff).map((n) => (
+              {NAV.map((n) => (
                 <SidebarMenuItem key={n.url}>
                   <SidebarMenuButton
                     asChild

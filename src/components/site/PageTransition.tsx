@@ -5,6 +5,9 @@ export const introDone: Promise<void> =
   typeof window === "undefined" ? Promise.resolve() : new Promise<void>((r) => (resolveIntro = r));
 
 export const INTRO_KEY = "najm:intro-seen";
+export function showRouteLoading() {
+  window.dispatchEvent(new Event("najm:route-loading"));
+}
 const hasSeenIntro = () => {try {return sessionStorage.getItem(INTRO_KEY) === "1"; } catch {return false; }};
 const markIntroSeen = () => {try { sessionStorage.setItem(INTRO_KEY, "1");} catch { /* storage blocked */}};
 const LABELS: Record<string, string> = {
@@ -32,6 +35,7 @@ export function PageTransition() {
   const homeRequestStats = useRef({ started: 0, completed: 0, pending: 0 });
   const previousPath = useRef(pathname);
   const [routeLoading, setRouteLoading] = useState(false);
+  const routeLoadingRef = useRef(false);
 
   useLayoutEffect(() => {
     if (pathname !== "/") return;
@@ -112,28 +116,24 @@ export function PageTransition() {
   useEffect(() => {
     if (previousPath.current === pathname) return;
     previousPath.current = pathname;
-    setLabel(labelFor(pathname));
-    setRouteLoading(true);
+    if (!routeLoadingRef.current) return;
+    routeLoadingRef.current = false;
     window.scrollTo(0, 0);
-
-    // The pathname changes when Next has committed the destination route.
-    // Keep the overlay visible briefly so the transition reads as intentional.
-    const timeout = window.setTimeout(() => {
-      const overlay = routeRoot.current;
-      if (!overlay) {
-        setRouteLoading(false);
-        return;
-      }
-      const animation = overlay.animate(
-        [{ opacity: 1 }, { opacity: 0 }],
-        { duration: 260, easing: "ease-out", fill: "forwards" },
-      );
-      animation.onfinish = () => setRouteLoading(false);
-    }, 180);
-    return () => window.clearTimeout(timeout);
+    setRouteLoading(false);
   }, [pathname]);
 
+  useEffect(() => {
+    const onRouteLoading = () => {
+      routeLoadingRef.current = true;
+      routeRoot.current?.getAnimations().forEach((animation) => animation.cancel());
+      setRouteLoading(true);
+    };
+    window.addEventListener("najm:route-loading", onRouteLoading);
+    return () => window.removeEventListener("najm:route-loading", onRouteLoading);
+  }, []);
+
   return (
+    <>
     <div ref={root} aria-hidden data-page-transition data-html2canvas-ignore="true" data-liquid-ignore className="pointer-events-none fixed inset-0 z-[100] grid grid-cols-4">
       {STRIPES.map((c, i) => <div key={i} data-stripe className={`${c} h-full w-full origin-bottom`} />)}
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden text-ink">
@@ -142,20 +142,18 @@ export function PageTransition() {
           {intro && <p className="mt-4 text-lg tabular-nums tracking-[0.3em] opacity-70">{count}</p>}
         </div>
       </div>
-      {routeLoading && (
-        <div
-          ref={routeRoot}
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed inset-0 z-[110] flex items-center justify-center bg-background/35 text-ink backdrop-blur-xl"
-        >
-          <div className="rounded-3xl border border-white/50 bg-white/55 px-10 py-8 text-center shadow-xl backdrop-blur-2xl">
-            <span className="mx-auto mb-5 block h-8 w-8 animate-spin rounded-full border-2 border-primary/25 border-t-primary" aria-hidden="true" />
-            <p className="fancy text-4xl">Loading</p>
-            <p className="mt-2 text-sm tracking-[0.2em] text-muted-foreground">{label}</p>
-          </div>
-        </div>
-      )}
     </div>
+    {routeLoading && (
+      <div
+        ref={routeRoot}
+        role="status"
+        aria-live="polite"
+        className="fixed inset-0 z-[110] flex flex-col items-center justify-center gap-5 bg-background/35 text-ink backdrop-blur-xl"
+      >
+        <span className="route-loader" aria-hidden="true" />
+        <p className="fancy text-4xl">Loading</p>
+      </div>
+    )}
+    </>
   );
 }

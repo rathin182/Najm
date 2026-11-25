@@ -23,12 +23,14 @@ export function EnquiryForm({
   defaultMessage = "",
   propertyId,
   propertyTitle,
+  onSuccess,
 }: {
   cta?: string;
   defaultMessage?: string;
   /** Slug/id of the property this enquiry is for. Omit for general contact forms. */
   propertyId?: string;
   propertyTitle?: string;
+  onSuccess?: () => void;
 }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -74,6 +76,7 @@ export function EnquiryForm({
           }
           form.reset();
           toast.success("Thank you — an advisor will contact you within 24 hours.");
+          onSuccess?.();
         } catch (err) {
           toast.error(err instanceof Error ? err.message : "Something went wrong. Please try again.");
         } finally {

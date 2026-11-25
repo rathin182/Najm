@@ -1,16 +1,17 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { Property } from "@/data/properties";
-import { ArrowLeft, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, MapPin, Maximize, Sofa, Trees } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, Mail, MapPin, Maximize, MessageCircle, Phone, Sofa, Star, Trees } from "lucide-react";
 import { formatSAR, propertyDetails } from "@/data/properties";
 import { buildBrochureHtml } from "@/lib/brochure-template";
 import { EnquiryForm } from "@/components/site/EnquiryForm";
 import { PropertyCard } from "@/components/site/PropertyCard";
+import { PropertyCardLink } from "@/components/site/PropertyCardLink";
 import { useLiquidGlass, useReveal } from "@/components/site/motion";
 import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import { normalizeAmenity } from "@/lib/property-amenities";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const DEFAULT_AGENT = { name: "Lama Al-Qahtani", phone: "+966110000000" };
 
@@ -21,18 +22,39 @@ const avatarColor = (name: string) => {
   return `hsl(${h} 45% 42%)`;
 };
 
-/** Shows the listing agent entered in Admin → Property → "Agent & SEO"; falls back to the default advisor. */
-function AgentCard({ p }: { p: Property }) {
+/** Shows the assigned agent profile, with legacy listing details as a compatibility fallback. */
+function AgentCard({ p, onSubmitEnquiry, onRequestCallback }: { p: Property; onSubmitEnquiry: () => void; onRequestCallback: () => void }) {
   const details = (p as { details?: { agentName?: string; agentPhone?: string } }).details;
-  const name = details?.agentName?.trim() || DEFAULT_AGENT.name;
-  const phone = details?.agentPhone?.trim() || (details?.agentName?.trim() ? "" : DEFAULT_AGENT.phone);
+  const agent = p.assignedAgent;
+  const name = agent?.name || details?.agentName?.trim() || DEFAULT_AGENT.name;
+  const phone = agent?.phone || details?.agentPhone?.trim() || (details?.agentName?.trim() ? "" : DEFAULT_AGENT.phone);
   const initial = ([...name][0] ?? "?").toUpperCase();
   return (
-    <div className="mt-4 flex items-center gap-4 rounded-[2rem] bg-cream p-4">
-      <span aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-medium text-white" style={{ backgroundColor: avatarColor(name) }}>{initial}</span>
-      <div className="min-w-0 flex-1"><p className="truncate font-medium">{name}</p><p className="text-sm text-muted-foreground">Listing agent</p></div>
-      {phone && <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="rounded-full bg-primary px-4 py-2.5 text-sm text-primary-foreground hover:bg-ink">Call</a>}
-    </div>
+    <section className="mt-4 rounded-[2rem] border border-border/70 bg-background p-5 shadow-soft" aria-label="Listing agent">
+      <div className="flex items-center gap-4">
+        {agent?.image ? <img src={agent.image} alt={name} className="h-[4.5rem] w-[4.5rem] shrink-0 rounded-full object-cover" /> : <span aria-hidden="true" className="flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full text-2xl font-medium text-white" style={{ backgroundColor: avatarColor(name) }}>{initial}</span>}
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-lg font-semibold underline decoration-foreground/30 underline-offset-2">{name}</h2>
+          <p className="text-sm text-muted-foreground">{agent?.role || "Listing agent"}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            {agent?.review != null && <span className="inline-flex items-center gap-1 font-medium text-foreground"><Star className="h-4 w-4 fill-current text-amber-500" />{agent.review.toFixed(1)}</span>}
+            <span className={`inline-flex items-center gap-1 ${agent?.verified ? "text-primary" : "text-muted-foreground"}`}>
+              {agent?.verified && <BadgeCheck className="h-4 w-4" />}{agent?.verified ? "Verified agent" : "Not verified"}
+            </span>
+          </div>
+        </div>
+      </div>
+      {agent?.description && <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{agent.description}</p>}
+      <div className={`mt-4 grid gap-2 ${agent?.whatsapp ? "grid-cols-3" : "grid-cols-2"}`}>
+        {phone && <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border px-2 text-sm font-medium hover:bg-cream"><Phone className="h-4 w-4" />Call</a>}
+        {agent?.whatsapp && <a href={`https://wa.me/${agent.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border px-2 text-sm font-medium hover:bg-cream"><MessageCircle className="h-4 w-4" />WhatsApp</a>}
+        {agent?.email && <a href={`mailto:${agent.email}`} aria-label="Email agent" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border px-2 text-sm font-medium hover:bg-cream"><Mail className="h-4 w-4" /><span>Email</span></a>}
+      </div>
+      <div className="mt-4 grid gap-3">
+        {/* {phone && <button type="button" onClick={onRequestCallback} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-ink px-4 text-sm font-semibold text-ink-foreground hover:bg-primary"><Phone className="h-4 w-4" />Request a callback</button>} */}
+        <button type="button" onClick={onSubmitEnquiry} className="min-h-12 rounded-md border border-border px-4 text-sm font-medium hover:bg-cream">Submit enquiry</button>
+      </div>
+    </section>
   );
 }
 
@@ -46,6 +68,8 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
   const thumbnailStrip = useRef<HTMLDivElement>(null);
   const previousActive = useRef(0);
   const [related, setRelated] = useState<Property[]>([]);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
+  const [enquiryMode, setEnquiryMode] = useState<"enquiry" | "callback">("enquiry");
   const countedSlug = useRef("");
   useReveal([p.id]);
   useEffect(() => {
@@ -121,9 +145,9 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
   return (
     <main className="px-4 pb-28 pt-28 md:px-6">
       <div className="mx-auto w-full max-w-[1680px]">
-        <Link href="/properties" className="inline-flex items-center gap-2 text-lg text-muted-foreground hover:text-primary">
+        <PropertyCardLink href="/properties" className="inline-flex items-center gap-2 text-lg text-muted-foreground hover:text-primary">
           <ArrowLeft className="h-5 w-5" /> All properties
-        </Link>
+        </PropertyCardLink>
 
         {/* Gallery and enquiry panel */}
         <div className="mt-1 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -151,16 +175,37 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
                 <Download className="h-4 w-4" /> Download brochure
               </button>
             </div>
-            <div className="overflow-hidden rounded-[2.5rem] bg-background shadow-soft">
-              <div className="bg-primary p-8 text-primary-foreground">
-                <h2 className="display-md"><span className="fancy !text-primary-foreground">Enquire</span></h2>
-                <p className="mt-3 text-lg opacity-80">Arrange a private viewing or request the full information pack.</p>
-              </div>
-              <div className="p-8">
-                <EnquiryForm cta="Request viewing" defaultMessage={`I'm interested in ${p.title}.`} propertyId={p.id} propertyTitle={p.title} />
-              </div>
-            </div>
-            <AgentCard p={p} />
+            <AgentCard
+              p={p}
+              onSubmitEnquiry={() => { setEnquiryMode("enquiry"); setEnquiryOpen(true); }}
+              onRequestCallback={() => { setEnquiryMode("callback"); setEnquiryOpen(true); }}
+            />
+            <Dialog open={enquiryOpen} onOpenChange={setEnquiryOpen}>
+              <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto overflow-x-hidden rounded-[1.75rem] border-none bg-white p-0 shadow-2xl [&>button]:right-5 [&>button]:top-5 [&>button]:rounded-full [&>button]:bg-white/15 [&>button]:p-2 [&>button]:text-white [&>button]:opacity-100 [&>button]:ring-offset-0 [&>button]:hover:bg-white/25 [&>button]:focus:ring-white">
+                <div className="bg-primary px-7 pb-7 pt-8 text-primary-foreground sm:px-8">
+                  <DialogHeader className="space-y-0 text-left">
+                    <p className="mb-3 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-primary-foreground/65">
+                      {enquiryMode === "callback" ? "Callback request" : "Property enquiry"}
+                    </p>
+                    <DialogTitle className="max-w-[85%] text-2xl font-semibold leading-tight tracking-tight text-primary-foreground sm:text-3xl">
+                      {enquiryMode === "callback" ? "Request a callback" : "Enquire about this property"}
+                    </DialogTitle>
+                    <DialogDescription className="mt-3 max-w-md text-sm leading-6 text-primary-foreground/80 sm:text-base">
+                      Arrange a private viewing or request information about <span className="font-medium text-white">{p.title}</span>.
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+                <div className="px-6 py-6 sm:px-8 sm:py-8">
+                  <EnquiryForm
+                    cta={enquiryMode === "callback" ? "Request callback" : "Submit enquiry"}
+                    defaultMessage={enquiryMode === "callback" ? `Please call me back regarding ${p.title}.` : `I'm interested in ${p.title}.`}
+                    propertyId={p.id}
+                    propertyTitle={p.title}
+                    onSuccess={() => setEnquiryOpen(false)}
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           </aside>
 
         <div className="mt-10 lg:col-start-1">

@@ -22,7 +22,7 @@ export type PropertyExtra = {
   /** 5-year price growth in % — shown in the investment snapshot when set. */
   priceGrowth5yr?: number;
 };
-export type AdminProperty = Property & { featuredPlacement: "PROPERTIES" | "PROJECTS"; views: number; published: boolean; details?: PropertyExtra };
+export type AdminProperty = Property & { featuredPlacement: "PROPERTIES" | "PROJECTS"; views: number; published: boolean; destinationId?: string; agentId?: string; details?: PropertyExtra };
 
 type Data = { properties: AdminProperty[]; enquiries: Enquiry[]; contacts: Contact[]; staff: Staff[] };
 

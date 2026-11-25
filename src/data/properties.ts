@@ -23,6 +23,13 @@ export type Property = {
   images: string[];
   featured?: boolean;
   featuredPlacement?: "PROPERTIES" | "PROJECTS";
+  destinationId?: string;
+  agentId?: string;
+  assignedAgent?: {
+    id: string; name: string; role: string; age: number; experienceYears: number; review: number | null;
+    verified: boolean; phone: string; whatsapp: string | null; email: string;
+    description: string | null; image: string | null;
+  };
   investment?: { yield: number; label: string };
   status: "Ready" | "Off-plan";
   year: number;

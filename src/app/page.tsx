@@ -208,6 +208,7 @@ type HomeArticle = {
   readMinutes: number;
 };
 
+type DestinationSummary = { id: string; name: string; image: string | null; description: string; views: number; propertyCount: number };
 type FeaturedCity = { id: string; name: string; image: string | null };
 
 function Home() {
@@ -217,7 +218,7 @@ function Home() {
   const [faq, setFaq] = useState<number | null>(0);
   const [featured, setFeatured] = useState<Property[]>([]);
   const [featuredCities, setFeaturedCities] = useState<FeaturedCity[]>([]);
-  const [otherProperties, setOtherProperties] = useState<Property[]>([]);
+  const [topDestinations, setTopDestinations] = useState<DestinationSummary[]>([]);
   const [vault, setVault] = useState<AdminProperty[]>([]);
 
   const featuredProperties = featured.filter((property) => property.featuredPlacement !== "PROJECTS");
@@ -267,19 +268,13 @@ function Home() {
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/listings/explore")
+    fetch("/api/destinations?limit=5")
       .then(async (response) => {
-        if (!response.ok) throw new Error("Could not load listings.");
-        return response.json() as Promise<Property[]>;
+        if (!response.ok) throw new Error("Could not load destinations.");
+        return response.json() as Promise<DestinationSummary[]>;
       })
-      .then((listings) => {
-        if (!cancelled && Array.isArray(listings)) {
-          setOtherProperties(listings);
-        }
-      })
-      .catch((error) =>
-        console.error("Other homepage properties could not be loaded", error)
-      );
+      .then((destinations) => { if (!cancelled && Array.isArray(destinations)) setTopDestinations(destinations); })
+      .catch((error) => console.error("Homepage destinations could not be loaded", error));
 
     return () => {
       cancelled = true;
@@ -339,6 +334,34 @@ function Home() {
         </div>
       </section> */}
 
+      {/* Featured cities */}
+      {featuredCities.length > 0 && <section id="featured-cities" className="scroll-mt-24 px-6 py-20">
+        <div className="mx-auto max-w-[1400px]">
+          <div className="flex flex-wrap items-end justify-between gap-8">
+            <SectionTitle word="Featured" rest=" cities" eyebrow="Explore our featured destinations" />
+            {/* <Link href="/properties" className="flex items-center gap-2 text-lg hover:text-primary" data-reveal>
+              Explore properties <ArrowUpRight className="h-5 w-5" />
+            </Link> */}
+          </div>
+          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {featuredCities.map((city) => (
+              <Link key={city.id} href={`/properties?city=${encodeURIComponent(city.name)}`} className="group relative block aspect-[5/6] overflow-hidden rounded-[1.75rem] bg-secondary" data-reveal>
+                {city.image ? (
+                  <img src={city.image} alt={city.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]" />
+                ) : (
+                  <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/20 via-cream to-secondary"><MapPin className="h-10 w-10 text-primary" /></div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-3 text-white">
+                  <h3 className="text-2xl font-medium tracking-tight">{city.name}</h3>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/90 text-foreground transition-transform group-hover:-translate-y-1 group-hover:translate-x-1"><ArrowUpRight className="h-5 w-5" /></span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>}
+
       {/* Featured projects */}
       {featuredProjects.length > 0 && <section id="featured-projects" className="scroll-mt-24 px-6 py-20">
         <div className="mx-auto max-w-[1400px]">
@@ -365,34 +388,6 @@ function Home() {
           </div>
           <div className="mt-16 grid gap-x-6 gap-y-14 sm:grid-cols-2 lg:grid-cols-4">
             {featuredProperties.map((p) => <PropertyCard key={`property-${p.id}`} p={p} />)}
-          </div>
-        </div>
-      </section>}
-
-      {/* Featured cities */}
-      {featuredCities.length > 0 && <section id="featured-cities" className="scroll-mt-24 px-6 py-20">
-        <div className="mx-auto max-w-[1400px]">
-          <div className="flex flex-wrap items-end justify-between gap-8">
-            <SectionTitle word="Featured" rest=" cities" eyebrow="Explore our featured destinations" />
-            {/* <Link href="/properties" className="flex items-center gap-2 text-lg hover:text-primary" data-reveal>
-              Explore properties <ArrowUpRight className="h-5 w-5" />
-            </Link> */}
-          </div>
-          <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {featuredCities.map((city) => (
-              <Link key={city.id} href={`/properties?city=${encodeURIComponent(city.name)}`} className="group relative block aspect-[4/3] overflow-hidden rounded-[1.75rem] bg-secondary" data-reveal>
-                {city.image ? (
-                  <img src={city.image} alt={city.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]" />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/20 via-cream to-secondary"><MapPin className="h-10 w-10 text-primary" /></div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
-                <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-3 text-white">
-                  <h3 className="text-2xl font-medium tracking-tight">{city.name}</h3>
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/90 text-foreground transition-transform group-hover:-translate-y-1 group-hover:translate-x-1"><ArrowUpRight className="h-5 w-5" /></span>
-                </div>
-              </Link>
-            ))}
           </div>
         </div>
       </section>}
@@ -432,33 +427,28 @@ function Home() {
       </section>
       )} */}
 
-      {/* Top viewed property by destination */}
-      {otherProperties.length > 0 && <section className="px-6 py-20">
+      {/* Top destinations ranked by combined views across their live properties */}
+      {topDestinations.length > 0 && <section className="px-6 py-20">
         <div className="mx-auto max-w-[1400px]">
-          <SectionTitle word="Explore" rest=" destinations" eyebrow="The most viewed home in each city" />
-          <div className="mt-16 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
-            {otherProperties.map((p) => (
-              <Link key={p.id} href={`/properties/${p.id}`} className="group block" data-reveal>
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <SectionTitle word="Explore" rest=" destinations" eyebrow="Ranked by views across their properties" />
+            <Link href="/destinations" className="flex items-center gap-2 text-lg hover:text-primary" data-reveal>View all destinations <ArrowUpRight className="h-5 w-5" /></Link>
+          </div>
+          <div className="mt-12 grid gap-7 sm:grid-cols-2 lg:grid-cols-3">
+            {topDestinations.map((destination) => (
+              <Link key={destination.id} href={`/destinations/${destination.id}`} className="group block" data-reveal>
                 <div className="relative aspect-[16/10] overflow-hidden rounded-[1.75rem] bg-secondary">
-                  {p.images[0] && <img src={p.images[0]} alt={p.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]" />}
+                  {destination.image && <img src={destination.image} alt={destination.name} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]" />}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
                   <div className="absolute inset-x-5 bottom-5 flex items-end justify-between gap-4 text-white">
                     <div>
                       <p className="mb-1 text-xs font-medium uppercase tracking-[0.18em] text-white/75">Explore destination</p>
-                      <h3 className="text-3xl font-medium tracking-tight">{p.city}</h3>
+                      <h3 className="text-3xl font-medium tracking-tight">{destination.name}</h3>
                     </div>
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/90 text-foreground transition-transform group-hover:-translate-y-1 group-hover:translate-x-1"><ArrowUpRight className="h-5 w-5" /></span>
                   </div>
                 </div>
-                <div className="px-1 pt-5">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <h4 className="text-lg font-medium tracking-tight">{p.title}</h4>
-                    <span className="text-lg font-medium text-primary">{formatSAR(p.price)}</span>
-                  </div>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{p.district}, {p.city}</p>
-                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.short}</p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary">View this home <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span>
-                </div>
+                {destination.description && <p className="mt-4 line-clamp-2 px-1 text-sm text-muted-foreground">{destination.description}</p>}
               </Link>
             ))}
           </div>
@@ -476,7 +466,7 @@ function Home() {
       <GigaProjects />
 
       {/* Process */}
-      <section className="px-6 py-20">
+      {/* <section className="px-6 py-20">
         <div className="mx-auto max-w-7xl">
           <SectionTitle word="How" rest=" we work" eyebrow="Four steps to the keys" />
           <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -489,7 +479,7 @@ function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
       <WhyNajm />
 

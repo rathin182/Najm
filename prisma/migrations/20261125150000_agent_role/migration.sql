@@ -1,0 +1,1 @@
+ALTER TABLE "Agent" ADD COLUMN "role" VARCHAR(120) NOT NULL DEFAULT 'Property Advisor';

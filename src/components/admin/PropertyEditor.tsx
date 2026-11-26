@@ -6,7 +6,7 @@ import { ArrowLeft, Bath, BedDouble, Building2, CheckCircle2, GripVertical, Home
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { formatSAR, propertyDetails, type Property } from "@/data/properties";
-import { newId, useAdmin, type AdminProperty, type Pair, type PropertyExtra } from "@/lib/admin-store";
+import { newId, useAdmin, type AdminProperty, type FeatureGroup, type Pair, type PropertyExtra } from "@/lib/admin-store";
 import { CATEGORY_TYPES } from "@/lib/property-categories";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
 import { CATEGORY_GROUPS } from "@/lib/home-search-options";
@@ -30,7 +30,7 @@ function extraFor(p: AdminProperty): PropertyExtra {
   const base: PropertyExtra = {
     plot: empty ? 0 : d.plot, floors: empty ? "" : d.floors, parking: empty ? 0 : d.parking, furnishing: empty ? "Unfurnished" : d.furnishing,
     facing: empty ? "North" : d.facing, developer: empty ? "" : d.developer, deed: empty ? "" : d.deed, lat: d.lat, lng: d.lng,
-    serviceCharge: 0, handover: "", video: "",
+    serviceCharge: 0, handover: "", video: "", state: "Sale",
     rooms: (empty ? [["", ""]] : d.rooms) as Pair[], nearby: (empty ? [["", ""]] : d.nearby) as Pair[], plan: d.plan as Pair[],
     features: [], agentName: "", agentPhone: "", seoTitle: "", seoDescription: "",
   };
@@ -39,8 +39,19 @@ function extraFor(p: AdminProperty): PropertyExtra {
   // so the editor never reads `undefined.map(...)` / `undefined.startsWith(...)` and crashes.
   const saved = Object.fromEntries(Object.entries(p.details).filter(([, v]) => v !== null && v !== undefined)) as Partial<PropertyExtra>;
   const merged = { ...base, ...saved } as PropertyExtra;
-  for (const k of ["rooms", "nearby", "plan", "features"] as const) {
+  if (merged.state !== "Sale" && merged.state !== "Rent") merged.state = "Sale";
+  for (const k of ["rooms", "nearby", "plan"] as const) {
     if (!Array.isArray(merged[k])) (merged as Record<string, unknown>)[k] = base[k];
+  }
+  // Before grouped features, this field was a flat list of tags. Preserve those
+  // values when an older listing is opened and saved in the new editor.
+  const savedFeatures = (p.details as { features?: unknown } | undefined)?.features;
+  if (Array.isArray(savedFeatures) && savedFeatures.every((feature) => typeof feature === "string")) {
+    merged.features = savedFeatures.length ? [{ heading: "Features & finishes", items: savedFeatures.map((value, index) => ({ label: `Feature ${index + 1}`, value })) }] : [];
+  } else if (!Array.isArray(merged.features)) {
+    merged.features = base.features;
+  } else {
+    merged.features = merged.features.filter((group): group is FeatureGroup => Boolean(group && typeof group.heading === "string" && Array.isArray(group.items)));
   }
   if (typeof merged.video !== "string") merged.video = "";
   if (typeof merged.handover !== "string") merged.handover = "";
@@ -249,7 +260,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
             <F label="District"><input className="field" value={p.district} onChange={(e) => set("district", e.target.value)} placeholder="e.g. Al Malqa" /></F>
             <F label="Year built / completion"><input className="field" type="number" value={p.year} onChange={(e) => set("year", Number(e.target.value))} /></F>
             <F label="Developer"><input className="field" value={x.developer} onChange={(e) => setE("developer", e.target.value)} /></F>
-            <F label="Property state"><select className="field" value="Sale" disabled><option value="Sale">For sale</option><option value="Buy">For buy</option></select></F>
+            <F label="Property state"><select className="field" value={x.state} onChange={(e) => setE("state", e.target.value as "Sale" | "Rent")}><option value="Sale">For sale</option><option value="Rent">For rent</option></select></F>
           </Section>
 
           <Section title="Price & size">
@@ -281,7 +292,7 @@ export function PropertyEditor({ initial }: { initial: AdminProperty }) {
 
           <Section title="Amenities" hint="Add a name and choose its Lucide icon.">
             <PropertyAmenitiesEditor values={p.amenities} onChange={(v) => set("amenities", v)} />
-            <Tags label="Features & finishes" list={x.features} onChange={(v) => setE("features", v)} placeholder="Italian marble, Miele kitchen…" />
+            <FeatureGroupsEditor groups={x.features} onChange={(features) => setE("features", features)} />
           </Section>
 
           <Section title="Payment plan">
@@ -424,18 +435,34 @@ function Pairs({ list, onChange, a, b }: { list: Pair[]; onChange: (v: Pair[]) =
   );
 }
 
-function Tags({ label, list, onChange, placeholder }: { label: string; list: string[]; onChange: (v: string[]) => void; placeholder: string }) {
-  const [v, setV] = useState("");
+function FeatureGroupsEditor({ groups, onChange }: { groups: FeatureGroup[]; onChange: (groups: FeatureGroup[]) => void }) {
+  const updateGroup = (index: number, update: (group: FeatureGroup) => FeatureGroup) => onChange(groups.map((group, i) => i === index ? update(group) : group));
   return (
     <div className="sm:col-span-2">
-      <p className="mb-2 px-1 text-sm text-muted-foreground">{label}</p>
-      <div className="flex flex-wrap gap-2 rounded-[1.5rem] bg-cream p-2">
-        {list.map((t) => (
-          <span key={t} className="flex items-center gap-1.5 rounded-full bg-background py-1.5 pl-4 pr-2 text-sm">{t}<button type="button" aria-label={`Remove ${t}`} onClick={() => onChange(list.filter((x) => x !== t))}><X className="h-3.5 w-3.5" /></button></span>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <div><p className="text-sm font-medium">Features &amp; finishes</p><p className="mt-1 text-xs text-muted-foreground">Group details under a heading. Each subheading has one value.</p></div>
+        <button type="button" onClick={() => onChange([...groups, { heading: "", items: [{ label: "", value: "" }] }])} className="flex shrink-0 items-center gap-2 rounded-full bg-cream px-4 py-2 text-sm hover:bg-muted"><Plus className="h-4 w-4" />Add heading</button>
+      </div>
+      <div className="space-y-4">
+        {groups.map((group, groupIndex) => (
+          <div key={groupIndex} className="rounded-[1.5rem] border border-border/70 bg-cream p-4 sm:p-5">
+            <div className="flex items-center gap-2">
+              <input className="field !bg-background font-medium" aria-label={`Main heading ${groupIndex + 1}`} placeholder="Main heading (e.g. Kitchen)" value={group.heading} onChange={(event) => updateGroup(groupIndex, (current) => ({ ...current, heading: event.target.value }))} />
+              <button type="button" aria-label={`Remove heading ${group.heading || groupIndex + 1}`} onClick={() => onChange(groups.filter((_, index) => index !== groupIndex))} className="shrink-0 rounded-full bg-background p-3 text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-3 space-y-2">
+              {group.items.map((item, itemIndex) => (
+                <div key={itemIndex} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                  <input className="field !bg-background" aria-label={`Subheading ${itemIndex + 1}`} placeholder="Subheading (e.g. Countertop)" value={item.label} onChange={(event) => updateGroup(groupIndex, (current) => ({ ...current, items: current.items.map((row, index) => index === itemIndex ? { ...row, label: event.target.value } : row) }))} />
+                  <input className="field !bg-background" aria-label={`Value for ${item.label || `subheading ${itemIndex + 1}`}`} placeholder="One value (e.g. Italian marble)" value={item.value} onChange={(event) => updateGroup(groupIndex, (current) => ({ ...current, items: current.items.map((row, index) => index === itemIndex ? { ...row, value: event.target.value } : row) }))} />
+                  <button type="button" aria-label={`Remove subheading ${item.label || itemIndex + 1}`} onClick={() => updateGroup(groupIndex, (current) => ({ ...current, items: current.items.filter((_, index) => index !== itemIndex) }))} className="rounded-full bg-background p-3 text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
+                </div>
+              ))}
+            </div>
+            <button type="button" onClick={() => updateGroup(groupIndex, (current) => ({ ...current, items: [...current.items, { label: "", value: "" }] }))} className="mt-3 flex items-center gap-2 rounded-full bg-background px-4 py-2 text-sm hover:bg-muted"><Plus className="h-4 w-4" />Add subheading</button>
+          </div>
         ))}
-        <input value={v} placeholder={placeholder} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === ",") { e.preventDefault(); const t = v.trim(); if (t && !list.includes(t)) onChange([...list, t]); setV(""); }
-        }} className="min-w-40 flex-1 bg-transparent px-3 py-1.5 text-sm outline-none" />
+        {groups.length === 0 && <p className="rounded-2xl bg-cream p-4 text-sm text-muted-foreground">No feature headings yet. Add a heading to get started.</p>}
       </div>
     </div>
   );

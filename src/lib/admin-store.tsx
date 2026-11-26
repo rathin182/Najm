@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "next-auth/react";
-import { PROPERTIES, type Property } from "@/data/properties";
+import type { Property } from "@/data/properties";
 import type { HomeSearchOptions } from "@/lib/home-search-options";
 
 /** Admin workspace data stays browser-local; identity and permissions come from the server JWT. */
@@ -11,10 +11,11 @@ export type Enquiry = { id: string; name: string; email: string; phone: string; 
 export type Contact = { id: string; name: string; email: string; phone: string; type: "Buyer" | "Investor" | "Seller" | "Tenant"; city: string; notes: string; date: string };
 export type Staff = { id: string; name: string; email: string; role: Role; active: boolean };
 export type Pair = [string, string];
+export type FeatureGroup = { heading: string; items: { label: string; value: string }[] };
 export type PropertyExtra = {
   plot: number; floors: string; parking: number; furnishing: string; facing: string; developer: string; deed: string;
-  lat: number; lng: number; serviceCharge: number; handover: string; video: string;
-  rooms: Pair[]; nearby: Pair[]; plan: Pair[]; features: string[];
+  lat: number; lng: number; serviceCharge: number; handover: string; video: string; state: "Sale" | "Rent";
+  rooms: Pair[]; nearby: Pair[]; plan: Pair[]; features: FeatureGroup[];
   agentName: string; agentPhone: string; seoTitle: string; seoDescription: string;
   bathrooms?: Pair[];
   /** Estimated annual rent in SAR — required when the listing is an investment. */
@@ -37,11 +38,10 @@ const MSGS = ["Is this still available? I'd like a viewing this weekend.", "Can 
 const SOURCES = ["Property page", "Home contact form", "Contact page", "Brochure download", "Phone call"];
 
 export function seed(): Data {
-  const properties = PROPERTIES.map((p, i) => ({ ...p, featuredPlacement: p.featuredPlacement ?? "PROPERTIES" as const, views: 4200 - i * 310 + ((i * 977) % 600), published: true }));
   const statuses: EnquiryStatus[] = ["New", "New", "Contacted", "Viewing", "New", "Closed"];
   const enquiries: Enquiry[] = Array.from({ length: 18 }, (_, i) => {
     const n = NAMES[i % NAMES.length]!;
-    return { id: uid(), name: n, email: n.toLowerCase().replace(/[^a-z]+/g, ".") + "@mail.com", phone: `+966 5${(10000000 + i * 7345121) % 99999999}`.slice(0, 15), message: MSGS[i % MSGS.length]!, propertyId: properties[i % properties.length]!.id, source: SOURCES[i % SOURCES.length]!, status: statuses[i % statuses.length]!, date: daysAgo(Math.floor(i * 1.6), 9 + (i % 8)) };
+    return { id: uid(), name: n, email: n.toLowerCase().replace(/[^a-z]+/g, ".") + "@mail.com", phone: `+966 5${(10000000 + i * 7345121) % 99999999}`.slice(0, 15), message: MSGS[i % MSGS.length]!, source: SOURCES[i % SOURCES.length]!, status: statuses[i % statuses.length]!, date: daysAgo(Math.floor(i * 1.6), 9 + (i % 8)) };
   });
   const types: Contact["type"][] = ["Buyer", "Investor", "Seller", "Tenant"];
   const contacts: Contact[] = NAMES.map((n, i) => ({ id: uid(), name: n, email: n.toLowerCase().replace(/[^a-z]+/g, ".") + "@mail.com", phone: `+966 55 ${String(1000000 + i * 834211).slice(0, 7)}`, type: types[i % 4]!, city: ["Riyadh", "Jeddah", "Al Khobar", "Dammam"][i % 4]!, notes: i % 3 === 0 ? "Prefers WhatsApp. Budget around SAR 5M." : "", date: daysAgo(i * 4) }));
@@ -50,7 +50,7 @@ export function seed(): Data {
     { id: "s2", name: "Lama Al-Qahtani", email: "lama@najm.sa", role: "Agent", active: true },
     { id: "s3", name: "Omar Haddad", email: "omar@najm.sa", role: "Viewer", active: true },
   ];
-  return { properties, enquiries, contacts, staff };
+  return { properties: [], enquiries, contacts, staff };
 }
 
 /** Called by public site forms so new enquiries appear in the admin inbox. */
@@ -76,6 +76,7 @@ type Ctx = Data & {
   login: (email: string, password: string) => string | null;
   logout: () => void;
   saveProperty: (p: AdminProperty) => void;
+  replaceProperties: (properties: AdminProperty[]) => void;
   deleteProperty: (id: string) => void;
   updateEnquiry: (id: string, patch: Partial<Enquiry>) => void;
   deleteEnquiry: (id: string) => void;
@@ -99,6 +100,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) d = { ...seed(), ...JSON.parse(raw) };
+      // Listings are database-owned. Ignore any sample or cached properties in
+      // older browser-local workspace data; the admin list loads them from API.
+      d.properties = [];
       d.properties = d.properties.map((property) => ({ ...property, featuredPlacement: property.featuredPlacement ?? "PROPERTIES" }));
       const inbox = JSON.parse(localStorage.getItem(INBOX) || "[]");
       if (inbox.length) { d.enquiries = [...inbox.reverse(), ...d.enquiries]; localStorage.removeItem(INBOX); }
@@ -124,6 +128,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (event.key !== KEY || !event.newValue) return;
       try {
         const stored = { ...seed(), ...JSON.parse(event.newValue) } as Data;
+        stored.properties = [];
         stored.properties = stored.properties.map((property) => ({ ...property, featuredPlacement: property.featuredPlacement ?? "PROPERTIES" }));
         setData(stored);
       } catch { /* ignore invalid stored data */ }
@@ -154,12 +159,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const value = useMemo<Ctx>(() => ({
     ...data, ready: ready && sessionStatus !== "loading", user, can: PERMS[user?.role ?? "Viewer"], login,
     logout: () => {},
-    saveProperty: (p) => setData((d) => {
-      const seeded = PROPERTIES.find((item) => item.id === p.id);
-      const exists = d.properties.some((item) => item.id === p.id);
-      const properties = seeded && !exists ? d.properties.filter((item) => item.id !== seeded.id) : d.properties;
-      return { ...d, properties: upsert(properties, p) };
-    }),
+    saveProperty: (p) => setData((d) => ({ ...d, properties: upsert(d.properties, p) })),
+    replaceProperties: (properties) => setData((d) => ({ ...d, properties })),
     deleteProperty: (id) => setData((d) => ({ ...d, properties: d.properties.filter((p) => p.id !== id) })),
     updateEnquiry: (id, patch) => setData((d) => ({ ...d, enquiries: d.enquiries.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
     deleteEnquiry: (id) => setData((d) => ({ ...d, enquiries: d.enquiries.filter((e) => e.id !== id) })),

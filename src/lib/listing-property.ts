@@ -30,7 +30,7 @@ export function listingToProperty(listing: ListingWithMedia): AdminProperty {
     amenities: listing.amenities.map(normalizeAmenity),
     views: listing.viewCount,
     published: listing.status === "LIVE",
-    details: { ...details, video: listing.media.find((media) => media.kind === "VIDEO_LINK" || media.kind === "VIDEO_UPLOAD")?.externalUrl ?? details.video ?? "" } as PropertyExtra,
+    details: { ...details, state: listing.listingType === "RENT" ? "Rent" : "Sale", video: listing.media.find((media) => media.kind === "VIDEO_LINK" || media.kind === "VIDEO_UPLOAD")?.externalUrl ?? details.video ?? "" } as PropertyExtra,
     ...(listing.agent ? { assignedAgent: {
       id: listing.agent.id, name: listing.agent.name, role: listing.agent.role, age: listing.agent.age,
       experienceYears: listing.agent.experienceYears, review: listing.agent.review,

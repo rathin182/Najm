@@ -6,13 +6,17 @@ import { listingToProperty } from "@/lib/listing-property";
 import { encodeAmenity } from "@/lib/property-amenities";
 
 const pair = z.tuple([z.string(), z.string()]);
+const featureGroup = z.object({
+  heading: z.string().trim().max(120),
+  items: z.array(z.object({ label: z.string().trim().max(120), value: z.string().trim().max(300) })).max(100),
+});
 const propertySchema = z.object({
   id: z.string().min(1).max(200), title: z.string().trim().min(1).max(200), city: z.string().trim().min(1).max(100), district: z.string().trim().max(150), destinationId: z.string().min(1).max(200).nullable().optional(), agentId: z.string().min(1).max(200).nullable().optional(),
   type: z.string().trim().min(1).max(100), price: z.number().int().positive(), area: z.number().positive(), beds: z.number().int().nonnegative(), baths: z.number().int().nonnegative(),
   short: z.string().max(500), description: z.string().max(20000), images: z.array(z.string().url().or(z.string().startsWith("/"))).min(1).max(50),
   featured: z.boolean().optional(), featuredPlacement: z.enum(["PROPERTIES", "PROJECTS"]).default("PROPERTIES"), investment: z.object({ yield: z.number().nonnegative(), label: z.string().max(120) }).optional(), status: z.enum(["Ready", "Off-plan"]), year: z.number().int().min(1800).max(2200),
   amenities: z.array(z.union([z.string().max(100), z.object({ name: z.string().trim().min(1).max(100), icon: z.string().min(1).max(100) })])).max(100), views: z.number().int().nonnegative().optional(), published: z.boolean(), details: z.object({
-    plot: z.number().nonnegative(), floors: z.string().max(100), parking: z.number().nonnegative(), furnishing: z.string().max(80), facing: z.string().max(80), developer: z.string().max(200), deed: z.string().max(200), lat: z.number(), lng: z.number(), serviceCharge: z.number().nonnegative(), handover: z.string().max(50), video: z.string().max(2000), rooms: z.array(pair), nearby: z.array(pair), plan: z.array(pair), features: z.array(z.string().max(100)), agentName: z.string().max(200), agentPhone: z.string().max(80), seoTitle: z.string().max(200), seoDescription: z.string().max(500), annualRent: z.number().nonnegative().optional(), priceGrowth5yr: z.number().min(-100).max(1000).optional(),
+    plot: z.number().nonnegative(), floors: z.string().max(100), parking: z.number().nonnegative(), furnishing: z.string().max(80), facing: z.string().max(80), developer: z.string().max(200), deed: z.string().max(200), lat: z.number(), lng: z.number(), serviceCharge: z.number().nonnegative(), handover: z.string().max(50), video: z.string().max(2000), state: z.enum(["Sale", "Rent"]), rooms: z.array(pair), nearby: z.array(pair), plan: z.array(pair), features: z.array(featureGroup).max(100), agentName: z.string().max(200), agentPhone: z.string().max(80), seoTitle: z.string().max(200), seoDescription: z.string().max(500), annualRent: z.number().nonnegative().optional(), priceGrowth5yr: z.number().min(-100).max(1000).optional(),
   }).optional(),
 }).superRefine((property, context) => {
   if (property.investment) {
@@ -68,16 +72,16 @@ export async function POST(request: Request) {
   const configuredCommercial = (await prisma.homeSearchOption.findMany({ where: { enabled: true, group: "commercialTypes" }, select: { value: true } })).map((row) => row.value.trim().toLowerCase());
   const typeKey = p.type.trim().toLowerCase();
   const category: PropertyCategory = configuredCommercial.includes(typeKey) || typeKey.includes("commercial") || ["office", "shop", "showroom", "warehouse", "industrial building", "business center", "restaurant / cafe", "co-working space"].includes(typeKey) ? "COMMERCIAL" : typeKey.includes("land") || typeKey.includes("plot") ? "LAND" : "RESIDENTIAL";
-  const listingType: ListingType = "SALE";
+  const listingType: ListingType = p.details?.state === "Rent" ? "RENT" : "SALE";
   const requestedSlug = slugify(p.id || p.title) || `property-${Date.now()}`;
   const slug = await prisma.listing.findFirst({ where: { slug: requestedSlug, ownerId: { not: session!.user.id } }, select: { id: true } }).then((conflict) => conflict ? `${requestedSlug}-${slugify(p.title).slice(0, 24) || "listing"}` : requestedSlug);
   const media = [...p.images.map((url, position) => ({ kind: "IMAGE" as const, externalUrl: url, position, isCover: position === 0, status: "READY" as const })), ...(p.details?.video ? [{ kind: p.details.video.startsWith("/") ? "VIDEO_UPLOAD" as const : "VIDEO_LINK" as const, externalUrl: p.details.video, position: p.images.length, isCover: false, status: "READY" as const }] : [])];
-  const details = { ...(p.details ?? {}), short: p.short, serviceCharge: p.details?.serviceCharge ?? 0, paymentPlan: p.details?.plan ?? [], state: "Sale" };
+  const details = { ...(p.details ?? {}), short: p.short, serviceCharge: p.details?.serviceCharge ?? 0, paymentPlan: p.details?.plan ?? [], state: p.details?.state ?? "Sale" };
   const data = {
     ownerId: session!.user.id, slug, title: p.title, description: p.description || p.short, listingType, category, propertyType: p.type,
     price: BigInt(p.price), featured: !!p.featured, featuredPlacement: p.featuredPlacement, bedrooms: p.beds, bathrooms: p.baths, furnished: p.details?.furnishing.toLowerCase().includes("furnished") ?? false,
     floors: Number.parseInt(p.details?.floors ?? "", 10) || null, yearBuilt: p.year, areaSqm: Math.round(p.area), locality: p.district || null, city: configuredLocation.name, destinationId: p.destinationId || null, agentId: p.agentId || null, state: "Saudi Arabia",
-    latitude: p.details?.lat ?? null, longitude: p.details?.lng ?? null, isOffPlan: p.status === "Off-plan", amenities: p.amenities.map(encodeAmenity), keyFeatures: p.details?.features ?? [],
+    latitude: p.details?.lat ?? null, longitude: p.details?.lng ?? null, isOffPlan: p.status === "Off-plan", amenities: p.amenities.map(encodeAmenity), keyFeatures: (p.details?.features ?? []).flatMap((group) => group.items.filter((item) => item.label.trim() || item.value.trim()).map((item) => [group.heading, item.label, item.value].filter(Boolean).join(": "))),
     projectedYield: p.investment ? String(p.investment.yield) : null, tier: p.investment?.label ?? null, badge: p.short || null, details,
     status: p.published ? "LIVE" as const : "DRAFT" as const, publishedAt: p.published ? new Date() : null,
   };

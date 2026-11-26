@@ -10,7 +10,7 @@ import { PageHeader, Panel } from "@/components/admin/AdminShell";
 
 
 function PropertiesAdmin() {
-  const { properties, saveProperty, deleteProperty, can } = useAdmin();
+  const { properties, replaceProperties, deleteProperty, can } = useAdmin();
   const [q, setQ] = useState("");
   const [city, setCity] = useState("");
   const [cityOptions, setCityOptions] = useState<string[]>([]);
@@ -21,7 +21,7 @@ function PropertiesAdmin() {
     fetch("/api/admin/listings", { credentials: "include" }).then(async (response) => {
       if (!response.ok) throw new Error("Could not load listings.");
       return response.json();
-    }).then((listings) => { if (!cancelled && Array.isArray(listings)) listings.forEach((property) => saveProperty(property)); }).catch(() => toast.error("Could not load saved listings."));
+    }).then((listings) => { if (!cancelled && Array.isArray(listings)) replaceProperties(listings); }).catch(() => toast.error("Could not load saved listings."));
     return () => { cancelled = true; };
   }, []);
 

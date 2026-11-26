@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { formatBudget, formatDeadline, type FutureProject } from "@/lib/future-projects";
 import { TeamMembers } from "@/components/site/TeamMembers";
@@ -9,7 +9,7 @@ import { WHY_NAJM_ICONS } from "@/lib/why-najm-icons";
 import { CATEGORY_GROUPS, PROPERTY_CATEGORIES, type HomeSearchOptions } from "@/lib/home-search-options";
 import { CATEGORY_LABELS, CATEGORY_TYPES } from "@/lib/property-categories";
 
-/** Giga projects: one project at a time, navigated with on-screen controls. */
+/** Giga projects: a responsive image accordion, with details on the active project. */
 export function GigaProjects() {
   const [projects, setProjects] = useState<FutureProject[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -28,9 +28,8 @@ export function GigaProjects() {
     return () => { cancelled = true; };
   }, []);
 
-  const showPrevious = () => setActiveIndex((index) => Math.max(0, index - 1));
-  const showNext = () => setActiveIndex((index) => Math.min(projects.length - 1, index + 1));
-
+  const visibleProjects = projects.slice(0, 5);
+  const activeProject = visibleProjects[activeIndex];
   if (loaded && projects.length === 0) return null;
 
   return (
@@ -43,49 +42,53 @@ export function GigaProjects() {
           {/* <h2 className="display-lg">The <span className="fancy">Sovereign</span> Giga Projects</h2> */}
           <h2 className="display-lg">Upcoming <span className="fancy">Projects</span></h2>
             </div>
-            <div className="flex items-center gap-4" aria-label="Project navigation">
-              <p className="text-sm tabular-nums opacity-70" aria-live="polite">
-                {projects.length > 0 ? `${String(activeIndex + 1).padStart(2, "0")} / ${String(projects.length).padStart(2, "0")}` : "Loading projects"}
-              </p>
-              <button type="button" onClick={showPrevious} disabled={activeIndex === 0 || projects.length === 0} aria-label="Previous project" className="flex h-12 w-12 items-center justify-center rounded-full border border-ink-foreground/25 transition-colors hover:bg-ink-foreground hover:text-ink disabled:cursor-not-allowed disabled:opacity-35">
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <button type="button" onClick={showNext} disabled={activeIndex >= projects.length - 1 || projects.length === 0} aria-label="Next project" className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-ink-foreground hover:text-ink disabled:cursor-not-allowed disabled:opacity-35">
-                <ArrowRight className="h-5 w-5" />
-              </button>
-            </div>
           </div>
         </div>
         <div className="mx-auto mt-10 w-full max-w-[1440px] px-6">
-          <div className="relative overflow-hidden rounded-[2.5rem]">
-          <div className="flex transition-transform duration-700 ease-out" style={{ transform: `translateX(-${activeIndex * 100}%)` }}>
-          {projects.map((project, index) => (
-            <article key={project.id} aria-hidden={index !== activeIndex} className="group relative h-[70svh] min-h-[460px] w-full shrink-0 overflow-hidden rounded-[2.5rem] lg:h-[64svh]">
-              <img src={project.image} alt={project.imageAlt || project.name} loading="lazy" className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1.5s] group-hover:scale-105" />
-              <p className="absolute left-8 top-6 text-7xl font-medium tracking-tighter text-ink-foreground/85 md:text-8xl">{String(index + 1).padStart(2, "0")}</p>
-              <div className="absolute inset-x-3 bottom-3 grid gap-6 rounded-[2rem] bg-ink/35 p-6 backdrop-blur-md md:inset-x-5 md:bottom-5 md:grid-cols-[1.4fr_1fr] md:p-8">
-                <div>
-                  <p className="text-sm opacity-80">{project.status} · {project.region}</p>
-                  <h3 className="mt-2 text-3xl font-medium tracking-tight md:text-4xl">{project.name}</h3>
-                  <p className="mt-3 max-w-xl text-base opacity-85">{project.text}</p>
-                </div>
-                <div className="flex flex-col justify-between gap-5">
-                  <dl className="grid grid-cols-2 gap-4">
-                    <div><dt className="text-sm opacity-70">Est. deadline</dt><dd className="mt-1 text-lg font-medium">{formatDeadline(project)}</dd></div>
-                    <div><dt className="text-sm opacity-70">Budget</dt><dd className="mt-1 text-lg font-medium">{project.budget === null ? "Not disclosed" : formatBudget(project.budget)}</dd></div>
-                  </dl>
-                  <a href="#contact" className="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-6 py-3.5 text-base text-primary-foreground transition-colors hover:bg-background hover:text-foreground">
-                    Register interest <ArrowUpRight className="h-4 w-4" />
-                  </a>
-                </div>
-              </div>
-            </article>
-          ))}
-          {!loaded && Array.from({ length: 3 }, (_, index) => (
-            <div key={`loading-${index}`} aria-hidden className="h-[70svh] min-h-[460px] w-full shrink-0 animate-pulse rounded-[2.5rem] bg-ink-foreground/10 lg:h-[64svh]" />
-          ))}
-          </div>
-          </div>
+          {!loaded ? (
+            <div aria-hidden className="h-[520px] animate-pulse rounded-[2.5rem] bg-ink-foreground/10" />
+          ) : (
+            <div className="flex h-[520px] gap-3 overflow-x-auto pb-2 md:h-[580px] md:overflow-hidden" aria-label="Upcoming projects">
+              {visibleProjects.map((project, index) => {
+                const isActive = index === activeIndex;
+                return (
+                  <button
+                    key={project.id}
+                    type="button"
+                    aria-pressed={isActive}
+                    aria-label={`${project.name}${isActive ? ", selected" : ", show project details"}`}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onFocus={() => setActiveIndex(index)}
+                    onClick={() => setActiveIndex(index)}
+                    className={`group relative h-full min-w-[64px] shrink-0 overflow-hidden rounded-[2rem] text-left transition-[flex-grow,flex-basis] duration-1000 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[flex-grow] md:min-w-0 ${isActive ? "basis-[78vw] grow-[10] md:basis-0" : "basis-[64px] grow md:basis-0"}`}
+                  >
+                    <img src={project.image} alt={project.imageAlt || project.name} loading={index === activeIndex ? "eager" : "lazy"} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+                    <span className="absolute inset-0 bg-black/25 transition-colors duration-500 group-hover:bg-black/15" />
+                    <span className={`absolute left-6 top-5 text-6xl font-medium tracking-tighter text-white/90 transition-opacity md:text-8xl ${isActive ? "opacity-100" : "opacity-0"}`}>{String(index + 1).padStart(2, "0")}</span>
+                    <span className={`absolute z-10 whitespace-nowrap text-base font-semibold text-white transition-all duration-500 ${isActive ? "bottom-6 left-6 rotate-0 md:bottom-8 md:left-8" : "bottom-16 left-1/2 -translate-x-1/2 rotate-90 md:bottom-20"}`}>{project.name}</span>
+                    {isActive && (
+                      <span className="absolute inset-x-2 bottom-2 z-10 grid gap-5 rounded-[1.5rem] bg-ink/65 p-5 text-white backdrop-blur-xl md:inset-x-5 md:bottom-5 md:grid-cols-[1.4fr_1fr] md:gap-6 md:p-8">
+                        <span className="block min-w-0">
+                          <span className="block text-sm opacity-80">{project.status}{project.region ? ` · ${project.region}` : ""}</span>
+                          <span className="mt-2 block text-2xl font-medium tracking-tight md:text-4xl">{project.name}</span>
+                          {project.text && <span className="mt-3 line-clamp-3 block max-w-xl text-sm opacity-85 md:text-base">{project.text}</span>}
+                        </span>
+                        <span className="flex flex-col justify-between gap-4">
+                          <span className="grid grid-cols-2 gap-3">
+                            <span><span className="block text-xs opacity-70 md:text-sm">Est. deadline</span><span className="mt-1 block text-sm font-medium md:text-base">{formatDeadline(project)}</span></span>
+                            <span><span className="block text-xs opacity-70 md:text-sm">Budget</span><span className="mt-1 block text-sm font-medium md:text-base">{project.budget === null ? "Not disclosed" : formatBudget(project.budget)}</span></span>
+                          </span>
+                          <a href="#contact" onClick={(event) => event.stopPropagation()} className="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm text-primary-foreground transition-colors hover:bg-background hover:text-foreground">
+                            Register interest <ArrowUpRight className="h-4 w-4" />
+                          </a>
+                        </span>
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </section>

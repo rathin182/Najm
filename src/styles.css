@@ -94,7 +94,7 @@
 .route-loader {
   --route-loader-size: 1px;
   --route-loader-color-1: #195b3b;
-  --route-loader-color-2: #ff3d00;
+  --route-loader-color-2: #ffffff;
   width: calc(48 * var(--route-loader-size));
   height: calc(48 * var(--route-loader-size));
   border-radius: 50%;

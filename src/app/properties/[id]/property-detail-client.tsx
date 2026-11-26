@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Property } from "@/data/properties";
-import { ArrowLeft, BadgeCheck, Bath, BedDouble, Building2, Calendar, Car, Check, Compass, Download, FileCheck2, Home, Layers, Mail, MapPin, Maximize, MessageCircle, Phone, Sofa, Star, Trees } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Bath, BedDouble, Building2, Calendar, Car, Compass, Download, FileCheck2, Home, Layers, Mail, MapPin, Maximize, MessageCircle, Phone, Sofa, Star, Trees } from "lucide-react";
 import { formatSAR, propertyDetails } from "@/data/properties";
 import { buildBrochureHtml } from "@/lib/brochure-template";
 import { EnquiryForm } from "@/components/site/EnquiryForm";
@@ -60,6 +60,32 @@ function AgentCard({ p, onSubmitEnquiry, onRequestCallback }: { p: Property; onS
 
 export default function PropertyDetailClient({ initialProperty }: { initialProperty: Property }) {  const p = initialProperty.images.length > 0 ? initialProperty : { ...initialProperty, images: ["/images/hero.jpg"] };
   const d = propertyDetails(p);
+  const savedFeatures = (p as Property & { details?: { features?: unknown } }).details?.features;
+  const featureGroups = Array.isArray(savedFeatures)
+    ? savedFeatures.filter((group): group is { heading: string; items: { label: string; value: string }[] } =>
+        Boolean(
+          group &&
+          typeof group === "object" &&
+          "heading" in group &&
+          typeof group.heading === "string" &&
+          "items" in group &&
+          Array.isArray(group.items),
+        ),
+      ).map((group) => ({
+        heading: group.heading,
+        items: group.items.filter((item): item is { label: string; value: string } =>
+          Boolean(
+            item &&
+            typeof item === "object" &&
+            "label" in item &&
+            typeof item.label === "string" &&
+            "value" in item &&
+            typeof item.value === "string" &&
+            (item.label.trim() || item.value.trim()),
+          ),
+        ),
+      })).filter((group) => group.heading.trim() && group.items.length > 0)
+    : [];
   const inv = (p as { details?: { annualRent?: number; priceGrowth5yr?: number; serviceCharge?: number } }).details;
   const savedRent = inv?.annualRent;
   const annualRent = savedRent && savedRent > 0 ? savedRent : Math.round(p.price * ((p.investment?.yield ?? 0) / 100));
@@ -163,17 +189,23 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
                 );
               })}
             </div>
+            <div className="mt-5 rounded-[2rem] bg-cream p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Asking price</p>
+                  <p className="mt-1 text-2xl font-medium tracking-tight">{formatSAR(p.price)}</p>
+                </div>
+                <button onClick={downloadBrochure} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                  <Download className="h-4 w-4" /> Download brochure
+                </button>
+              </div>
+              <p className="mt-4 flex items-start gap-2 border-t border-foreground/10 pt-4 text-sm text-muted-foreground">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>{[p.district, p.city].filter(Boolean).join(", ") || "Location not provided"}</span>
+              </p>
+            </div>
           </div>
           <aside className="w-full lg:sticky lg:top-28 lg:self-start">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-4 rounded-[2rem] bg-cream p-5">
-              <div>
-                <p className="text-sm text-muted-foreground">Asking price</p>
-                <p className="mt-1 text-2xl font-medium tracking-tight">{formatSAR(p.price)}</p>
-              </div>
-              <button onClick={downloadBrochure} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
-                <Download className="h-4 w-4" /> Download brochure
-              </button>
-            </div>
             <AgentCard
               p={p}
               onSubmitEnquiry={() => { setEnquiryMode("enquiry"); setEnquiryOpen(true); }}
@@ -242,29 +274,39 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
             </Block>
 
             <Block title="Space" rest=" & layout">
-              <div className="overflow-hidden rounded-[2rem] bg-primary/[0.06]">
-                {d.rooms.map(([r, v], i) => (
-                  <div key={r} className={`flex items-center justify-between px-6 py-4 text-lg ${i % 2 ? "bg-background/60" : ""}`}>
-                    <span>{r}</span><span className="font-medium text-primary">{v}</span>
-                  </div>
-                ))}
-              </div>
+              <table className="w-full border-collapse text-left text-sm sm:text-base">
+                <tbody>
+                  {d.rooms.map(([r, v], i) => (
+                    <tr key={`${r}-${i}`} className="border-b border-border last:border-b-0">
+                      <th scope="row" className="w-1/2 py-4 pr-4 font-normal text-muted-foreground">{r}</th>
+                      <td className="py-4 pl-4 font-medium text-foreground">{v}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </Block>
 
-            <Block title="Features" rest=" & finishes">
-              <div className="grid gap-4 md:grid-cols-3">
-                {[
-                  ["Interiors", ["Italian marble flooring", "Oak joinery & walk-in wardrobes", "Double-height majlis", "Bespoke lighting design"]],
-                  ["Kitchen & systems", ["Gaggenau appliances", "Smart-home control (KNX)", "Central VRF air-conditioning", "Solar-ready roof & water storage"]],
-                  ["Security & services", ["24/7 gated security", "CCTV & video intercom", "Separate driver & maid quarters", "Backup generator"]],
-                ].map(([t, items]) => (
-                  <div key={t as string} className="rounded-[2rem] bg-primary/[0.06] p-6">
-                    <p className="text-lg font-medium text-primary">{t as string}</p>
-                    <ul className="mt-4 space-y-2.5">{(items as string[]).map((i) => <li key={i} className="flex gap-2 text-muted-foreground"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{i}</li>)}</ul>
-                  </div>
-                ))}
-              </div>
-            </Block>
+            {featureGroups.length > 0 && (
+              <Block title="Property" rest=" Info" accentLast>
+                <div className="space-y-7">
+                  {featureGroups.map((group, groupIndex) => (
+                    <div key={`${group.heading}-${groupIndex}`}>
+                      <h3 className="border-b border-border pb-3 text-xl font-medium">{group.heading}</h3>
+                      <table className="w-full border-collapse text-left text-sm sm:text-base">
+                        <tbody>
+                          {group.items.map((item, itemIndex) => (
+                            <tr key={`${item.label}-${itemIndex}`} className="border-b border-border last:border-b-0">
+                              <th scope="row" className="w-1/2 py-4 pr-4 font-normal text-muted-foreground">{item.label}</th>
+                              <td className="py-4 pl-4 font-medium text-foreground">{item.value}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              </Block>
+            )}
 
             {p.investment && (
               <Block title="Investment" rest=" snapshot">
@@ -378,10 +420,10 @@ export default function PropertyDetailClient({ initialProperty }: { initialPrope
   );
 }
 
-function Block({ title, rest = "", children }: { title: string; rest?: string; children: React.ReactNode }) {
+function Block({ title, rest = "", accentLast = false, children }: { title: string; rest?: string; accentLast?: boolean; children: React.ReactNode }) {
   return (
     <section className="mt-16" data-reveal>
-      <h2 className="display-md mb-6"><span className="fancy">{title}</span>{rest}</h2>
+      <h2 className="display-md mb-6">{accentLast ? <>{title}<span className="fancy">{rest}</span></> : <><span className="fancy">{title}</span>{rest}</>}</h2>
       {children}
     </section>
   );

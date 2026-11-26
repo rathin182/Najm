@@ -12,10 +12,33 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   let property: Property | null = PROPERTIES.find((item) => item.id === slug) ?? null;
 
   if (!property) {
-    const listing = await prisma.listing.findFirst({
-      where: { slug, status: "LIVE" },
-      include: { media: { orderBy: { position: "asc" } }, agent: true },
-    });
+    let listing;
+    try {
+      listing = await prisma.listing.findFirst({
+        where: { slug, status: "LIVE" },
+        include: { media: { orderBy: { position: "asc" } }, agent: true },
+      });
+    } catch (error) {
+      // Older deployed databases may not have the Agent.role migration yet.
+      // Keep the listing page available while omitting its optional agent data.
+      const missingAgentRole =
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "P2022" &&
+        "meta" in error &&
+        typeof error.meta === "object" &&
+        error.meta !== null &&
+        "column" in error.meta &&
+        error.meta.column === "Agent.role";
+
+      if (!missingAgentRole) throw error;
+
+      listing = await prisma.listing.findFirst({
+        where: { slug, status: "LIVE" },
+        include: { media: { orderBy: { position: "asc" } } },
+      });
+    }
     if (listing) property = listingToProperty(listing);
   }
 

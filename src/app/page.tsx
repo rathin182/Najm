@@ -316,7 +316,7 @@ function Home() {
   }, []);
 
   return (
-    <main>
+    <main className="w-screen min-w-0 max-w-[100vw] overflow-x-clip">
       <Hero />
 
       {/* Featured */}

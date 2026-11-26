@@ -78,11 +78,16 @@
     border-color: var(--color-border);
   }
   html {
+    width: 100%;
+    max-width: 100%;
     font-family: var(--font-sans);
   }
   body {
+    width: 100%;
+    max-width: 100%;
     background-color: var(--color-background);
     color: var(--color-foreground);
+    overflow-x: clip;
     -webkit-font-smoothing: antialiased;
   }
   ::selection {
@@ -138,6 +143,13 @@ html.lenis, html.lenis body { height: auto; }
   line-height: 0.9;
   letter-spacing: -0.3rem;
   padding: 0 0.06em;
+}
+
+@media (max-width: 639px) {
+  .fancy {
+    letter-spacing: -0.025em;
+    margin-inline-end: 0.08em;
+  }
 }
 
 @utility display-xl {

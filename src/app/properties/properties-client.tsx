@@ -186,9 +186,9 @@ function PropertiesPage({ initial }: { initial?: { query: string; data: ListingP
             <select aria-label="Sort by" value={sortField} onChange={(e) => update({ sort: e.target.value || undefined, dir: undefined })} className="field w-auto bg-cream pr-10 text-sm">
               <option value="">Recommended</option><option value="price">Price</option><option value="area">Area</option>
             </select>
-            <button type="button" title={sortTitle} aria-label={`Sort order: ${sortTitle}`} onClick={() => update({ sort: sortField || undefined, dir: sortDir === "asc" ? "desc" : "asc" })} className="flex items-center justify-center self-stretch rounded-full bg-cream px-4 hover:bg-primary/10">
+            {/* <button type="button" title={sortTitle} aria-label={`Sort order: ${sortTitle}`} onClick={() => update({ sort: sortField || undefined, dir: sortDir === "asc" ? "desc" : "asc" })} className="flex items-center justify-center self-stretch rounded-full bg-cream px-4 hover:bg-primary/10">
               <SortIcon className="h-4 w-4" />
-            </button>
+            </button> */}
           </div>
         </div>
 

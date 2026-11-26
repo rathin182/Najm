@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, MapPin, Plus, Minus, Search, Wallet, BedDouble, CheckCircle2 } from "lucide-react";
-const hero = '/images/hero2.jpg';
+const hero = '/images/heroanother.jpeg';
 const heroCut = '/images/hero2-cut.png';
 import { GigaProjects, WhyNajm } from "@/components/site/HomeSections";
 import { type Property, formatSAR } from "@/data/properties";

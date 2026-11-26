@@ -15,7 +15,7 @@ export function PropertyCard({ p }: { p: Property }) {
       </div>
       <div className="px-1 pt-5">
         <p className="text-2xl font-medium tracking-tight text-primary">{formatSAR(p.price)}</p>
-        <h3 className="mt-1 text-lg font-medium leading-snug tracking-tight">{p.title}</h3>
+        <h3 className="mt-1 line-clamp-2 text-lg font-medium leading-snug tracking-tight">{p.title}</h3>
         <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{p.district}, {p.city}</p>
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{p.short}</p>
         <div className="mt-4 flex items-center gap-5 whitespace-nowrap text-sm">
